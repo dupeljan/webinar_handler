@@ -2,6 +2,7 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/highgui/highgui.hpp>
+#include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
 
 #include <iostream>
@@ -69,6 +70,9 @@ int main(int argc, char *argv[])
     float bottom_filter[9] {-1, -2, -1,
                              0,  0,  0,
                              1,  2,  1};
+    // Prepairing
+    erode(src_gray,src_gray,getStructuringElement(MORPH_RECT,Size(1,10)));
+    //
     Mat left_border, bottom_border;
     filter2D(src_gray,left_border,-1, Mat(3,3,CV_32F,left_filter) );
     filter2D(src_gray,bottom_border,-1, Mat(3,3,CV_32F,bottom_filter));
@@ -80,14 +84,15 @@ int main(int argc, char *argv[])
     Mat mask;
     //erode(left_border,result,getStructuringElement(MORPH_RECT,Size(1,20)));
     morphologyEx(left_border,left_border,MORPH_OPEN,getStructuringElement(MORPH_RECT,Size(1,10)));// нижняя граница
-    morphologyEx(left_border,mask,MORPH_OPEN,getStructuringElement(MORPH_RECT,Size(1,15)));// верхняя граница
+    morphologyEx(left_border,mask,MORPH_OPEN,getStructuringElement(MORPH_RECT,Size(1,25)));// верхняя граница
     my_inv(left_border);//инвертируем
     Mat result;
     addWeighted(left_border,1,mask,1,0,result);//Соединияем
 
     //my_inv(left_border);
     //my_inv(result);
-    erode(result,result,getStructuringElement(MORPH_RECT,Size(11,5)));//добавим
+    erode(result,result,getStructuringElement(MORPH_RECT,Size(30,5)));//добавим
+    morphologyEx(result,result,MORPH_OPEN,getStructuringElement(MORPH_RECT,Size(40,5)),Point(-1,-1),2);//добавим
     // end
     /*
     int n = 10;
@@ -98,8 +103,14 @@ int main(int argc, char *argv[])
          imshow(to_string(i*10),vect[i]);
     }
     */
+    cvtColor(result,result,COLOR_GRAY2BGR);
+    my_inv(result);
+    Mat conduct = image & result;
+
     imshow( "left_border", left_border);                // Show our image inside it.
     imshow("result",result);
+    imshow("gray",src_gray);
+    imshow("conduct",conduct);
     waitKey(0); // Wait for a keystroke in the window
     return 0;
 }

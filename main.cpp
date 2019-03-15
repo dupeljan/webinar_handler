@@ -10,6 +10,9 @@
 
 #define PIC "/home/dupeljan/Projects/webinar_analisator/web_analis_opencv/ex.png"
 
+#define BOTTOM_STICK_LENGTH 11
+#define UPPER_SICK_LENGTH 25
+
 using namespace cv;
 using namespace std;
 void my_inv(Mat in){
@@ -67,24 +70,24 @@ int main(int argc, char *argv[])
     float left_filter[9] = {1,  0,   -1,
                            2,   0,   -2,
                            1,   0,   -1};
-    float bottom_filter[9] {-1, -2, -1,
-                             0,  0,  0,
-                             1,  2,  1};
+    float right_filter[9] = {-1,  0,   1,
+                             -2,   0,   2,
+                             -1,   0,   1};
     // Prepairing
     erode(src_gray,src_gray,getStructuringElement(MORPH_RECT,Size(1,10)));
     //
-    Mat left_border, bottom_border;
+    Mat left_border, right_border;
     filter2D(src_gray,left_border,-1, Mat(3,3,CV_32F,left_filter) );
-    filter2D(src_gray,bottom_border,-1, Mat(3,3,CV_32F,bottom_filter));
+    filter2D(src_gray,right_border,-1, Mat(3,3,CV_32F,right_filter));
     Mat my_filtered;
-    addWeighted(left_border,0.5,bottom_border,0.5,0,my_filtered);
+    addWeighted(left_border,1,right_border,1,0,left_border);
     // end filter
-    my_inv(my_filtered);
+    //my_inv(my_filtered);
     // Start morphology
     Mat mask;
     //erode(left_border,result,getStructuringElement(MORPH_RECT,Size(1,20)));
-    morphologyEx(left_border,left_border,MORPH_OPEN,getStructuringElement(MORPH_RECT,Size(1,10)));// нижняя граница
-    morphologyEx(left_border,mask,MORPH_OPEN,getStructuringElement(MORPH_RECT,Size(1,25)));// верхняя граница
+    morphologyEx(left_border,left_border,MORPH_OPEN,getStructuringElement(MORPH_RECT,Size(1,BOTTOM_STICK_LENGTH)));// нижняя граница
+    morphologyEx(left_border,mask,MORPH_OPEN,getStructuringElement(MORPH_RECT,Size(1,UPPER_SICK_LENGTH)));// верхняя граница
     my_inv(left_border);//инвертируем
     Mat result;
     addWeighted(left_border,1,mask,1,0,result);//Соединияем

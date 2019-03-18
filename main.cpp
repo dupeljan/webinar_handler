@@ -22,6 +22,7 @@ int main(int argc, char *argv[])
 {
     string imageName(PIC);
     Mat image,src_gray,grad;
+    RNG rng(12345);
 
     image = imread(imageName.c_str(), IMREAD_COLOR); // Read the file
 
@@ -106,14 +107,31 @@ int main(int argc, char *argv[])
          imshow(to_string(i*10),vect[i]);
     }
     */
-    cvtColor(result,result,COLOR_GRAY2BGR);
-    my_inv(result);
-    Mat conduct = image & result;
+    //cvtColor(result,result,COLOR_GRAY2BGR);
+    //my_inv(result);
+    //Mat conduct = image & result;
 
+    // gen bounding rect
+    vector<vector<Point> > contours;
+    findContours( result, contours, RETR_TREE, CHAIN_APPROX_SIMPLE, Point(0, 0) );
+    vector<Rect> boundRect( contours.size() );
+    vector<Mat> pieces( contours.size());
+    for( size_t i = 0; i < contours.size(); i++ ){
+        boundRect[i] = boundingRect( Mat(contours[i]) );
+        Scalar color = Scalar( rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
+        drawContours( image, contours, (int)i, color);
+        rectangle(image,boundRect[i],color);
+        pieces[i] = image(boundRect[i]);
+    }
+    /*
     imshow( "left_border", left_border);                // Show our image inside it.
     imshow("result",result);
     imshow("gray",src_gray);
-    imshow("conduct",conduct);
+    imshow("image",image);
+    */
+    for ( int i = 0; i < pieces.size(); i++)
+        imshow("pice" + to_string(i) ,pieces[i]);
+    //imshow("conduct",conduct);
     waitKey(0); // Wait for a keystroke in the window
     return 0;
 }

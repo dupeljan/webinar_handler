@@ -8,13 +8,55 @@
 #include <iostream>
 #include <string>
 
-#define PIC "/home/dupeljan/Projects/webinar_analisator/web_analis_opencv/ex.png"
+#define PIC "/home/dupeljan/Projects/webinar_analisator/web_analis_opencv/text.png"
 
-#define BOTTOM_STICK_LENGTH 11
-#define UPPER_SICK_LENGTH 25
+#define BOTTOM_STICK_LENGTH 5//11
+#define UPPER_SICK_LENGTH 20//25
 
 using namespace cv;
 using namespace std;
+
+void vertical_hist(Mat src, Mat& dst,int cols = 250){
+    dst = Mat::zeros(src.rows,cols,src.type());
+    //rectangle(dst,Point(0,0),Point(src.rows,cols),Scalar(255,255,255));
+    //int rows = int(50/*columns.size()*/);
+    for (int i = 0; i < src.rows; i++){
+        double norm = sum(src.row(i))[0] / (double) src.cols;
+        line(dst,Point(0,i),Point(norm* cols / (double) 255,i ),Scalar(255,255,255));
+    }
+    //for( int i = 1; i <= cols; i++)
+    //src.rowRange(0,50).copyTo(dst);
+
+}
+template <class T>
+void vertical_hist(Mat src,vector<T>& hist){
+    hist.resize(src.rows);
+    for (int i = 0; i < src.rows; i++)
+        hist[i] = sum(src.row(i))[0] / (T) src.cols;
+}
+
+void cut_text_line(Mat in,vector<Mat>& out,int threshold= 1){
+    vector<int> hist;
+    vertical_hist<int>(in,hist);
+    bool is_line = false;
+    int top;
+    for( int i = 0; i < hist.size(); i++ ){
+
+        if( ! is_line  && 255 - hist[i] > threshold ){
+            top = i;
+            is_line = true;
+        }
+        else if( is_line && 255 - hist[i] < threshold ){
+            out.resize(out.size() + 1);
+            in.rowRange(top,i).copyTo(out[out.size()-1]);
+            //out.push_back( in( Rect(top,0,i,in.cols) ) );
+            is_line = false;
+        }
+
+    }
+
+
+}
 void my_inv(Mat in){
     threshold(in,in,127,255,THRESH_BINARY_INV);
 }
@@ -39,29 +81,10 @@ int main(int argc, char *argv[])
 
     threshold(src_gray,src_gray,180,255,THRESH_BINARY );
 
-
-    // Sobel
-    Mat grad_x, grad_y;
-    Mat abs_grad_x, abs_grad_y;
-    int ddepth = CV_8U;
-    Sobel(src_gray, grad_x, ddepth, 1, 0);//, ksize, scale, delta, BORDER_DEFAULT);
-    Sobel(src_gray, grad_y, ddepth, 0, 1);//, ksize, scale, delta, BORDER_DEFAULT);
-
-    // converting back to CV_8U
-    convertScaleAbs(grad_x, abs_grad_x);
-    convertScaleAbs(grad_y, abs_grad_y);
-    // end Sobel
-
-    // Canny
-    Mat canny_out;
-    Canny(src_gray,canny_out,3,3);
-    //OutputArrayOfArrays counturs;
-    //findContours(src_gray,counturs,RetrievalModes,ContourApproximationModes);
-
-    addWeighted(abs_grad_x, 0.5, abs_grad_y, 0.5, 0, grad);
+   // addWeighted(abs_grad_x, 0.5, abs_grad_y, 0.5, 0, grad);
 
     Mat morphology_out;
-    morphologyEx(grad,morphology_out,MORPH_CLOSE, getStructuringElement( MORPH_RECT,Size(3,3) ) );
+    //morphologyEx(grad,morphology_out,MORPH_CLOSE, getStructuringElement( MORPH_RECT,Size(3,3) ) );
 
     Mat inv;
     threshold(morphology_out,inv,127,255,THRESH_BINARY_INV);
@@ -87,6 +110,7 @@ int main(int argc, char *argv[])
     // Start morphology
     Mat mask;
     //erode(left_border,result,getStructuringElement(MORPH_RECT,Size(1,20)));
+    // оставляем палки длинны от bottom до upper
     morphologyEx(left_border,left_border,MORPH_OPEN,getStructuringElement(MORPH_RECT,Size(1,BOTTOM_STICK_LENGTH)));// нижняя граница
     morphologyEx(left_border,mask,MORPH_OPEN,getStructuringElement(MORPH_RECT,Size(1,UPPER_SICK_LENGTH)));// верхняя граница
     my_inv(left_border);//инвертируем
@@ -119,18 +143,26 @@ int main(int argc, char *argv[])
     for( size_t i = 0; i < contours.size(); i++ ){
         boundRect[i] = boundingRect( Mat(contours[i]) );
         Scalar color = Scalar( rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
-        drawContours( image, contours, (int)i, color);
-        rectangle(image,boundRect[i],color);
+        //drawContours( image, contours, (int)i, color);
+        //rectangle(image,boundRect[i],color);
         pieces[i] = image(boundRect[i]);
     }
-    /*
+
     imshow( "left_border", left_border);                // Show our image inside it.
     imshow("result",result);
     imshow("gray",src_gray);
     imshow("image",image);
-    */
+    Mat hist;
+    vertical_hist(image,hist);
+    imshow("hist",hist);
+    vector<Mat> text_lines;
+    cut_text_line(image,text_lines);
+    for ( int i = 0; i < text_lines.size(); i++)
+        imshow("pice" + to_string(i) ,text_lines[i]);
+    /*
     for ( int i = 0; i < pieces.size(); i++)
         imshow("pice" + to_string(i) ,pieces[i]);
+    */
     //imshow("conduct",conduct);
     waitKey(0); // Wait for a keystroke in the window
     return 0;

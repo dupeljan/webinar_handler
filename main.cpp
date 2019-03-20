@@ -7,6 +7,7 @@
 
 #include <iostream>
 #include <string>
+#include <math.h>
 
 #define PIC "/home/dupeljan/Projects/webinar_analisator/web_analis_opencv/text.png"
 
@@ -21,36 +22,62 @@ void vertical_hist(Mat src, Mat& dst,int cols = 250){
     //rectangle(dst,Point(0,0),Point(src.rows,cols),Scalar(255,255,255));
     //int rows = int(50/*columns.size()*/);
     for (int i = 0; i < src.rows; i++){
-        double norm = sum(src.row(i))[0] / (double) src.cols;
-        line(dst,Point(0,i),Point(norm* cols / (double) 255,i ),Scalar(255,255,255));
+        double hist = sum(src.row(i))[0] / (double) src.cols;
+        line(dst,Point(0,i),Point( hist * cols / (double) 255,i ),Scalar(255,255,255));
     }
     //for( int i = 1; i <= cols; i++)
     //src.rowRange(0,50).copyTo(dst);
 
 }
-template <class T>
-void vertical_hist(Mat src,vector<T>& hist){
+
+void vertical_hist(Mat src,vector<int>& hist){
     hist.resize(src.rows);
     for (int i = 0; i < src.rows; i++)
-        hist[i] = sum(src.row(i))[0] / (T) src.cols;
+        hist[i] = (int)trunc( sum(src.row(i))[0] / (double) src.cols );
+}
+
+void horizontal_hist(Mat src, Mat& dst,int rows = 180){
+    dst = Mat::zeros(rows,src.cols,src.type());
+
+    for (int i = 0; i < src.cols; i++){
+        double hist = sum(src.col(i))[0] / (double) src.rows;
+        line(dst,Point(i,0),Point( i, hist * rows / (double) 255 ),Scalar(255,255,255));
+    }
+
+}
+
+void horizontal_hist(Mat src,vector<int>& hist){
+    hist.resize(src.cols);
+    for (int i = 0; i < src.cols; i++)
+        hist[i] = (int)trunc( sum(src.col(i))[0] / (double) src.rows );
 }
 
 void cut_text_line(Mat in,vector<Mat>& out,int threshold= 1){
-    vector<int> hist;
-    vertical_hist<int>(in,hist);
+    vector<int> v_hist;
+    vertical_hist(in,v_hist);
     bool is_line = false;
     int top;
-    for( int i = 0; i < hist.size(); i++ ){
+    for( int i = 0; i < v_hist.size(); i++ ){
 
-        if( ! is_line  && 255 - hist[i] > threshold ){
+        if( ! is_line  && 255 - v_hist[i] > threshold ){
             top = i;
             is_line = true;
         }
-        else if( is_line && 255 - hist[i] < threshold ){
+        else if( is_line && 255 - v_hist[i] < threshold ){
             out.resize(out.size() + 1);
             in.rowRange(top,i).copyTo(out[out.size()-1]);
             //out.push_back( in( Rect(top,0,i,in.cols) ) );
             is_line = false;
+            // TODO: compute horizontal hist for piece and cut borders
+            vector<int> h_hist;
+            horizontal_hist(out[out.size()-1],h_hist);
+            int left(-1), right;
+            for( int j = 0; left < 0 && j < h_hist.size(); left = ( 255 - h_hist[j] > threshold )? j : -1, j++ );
+            if ( left > -1 ){
+                right = left;
+                for( int j = left; j < h_hist.size(); right = ( 255 - h_hist[j] > threshold )? j : right, j++ );
+                out[out.size()-1].colRange(left,right).copyTo(out[out.size()-1]); // Cut borders
+            }
         }
 
     }
@@ -153,7 +180,7 @@ int main(int argc, char *argv[])
     imshow("gray",src_gray);
     imshow("image",image);
     Mat hist;
-    vertical_hist(image,hist);
+    horizontal_hist(image,hist);
     imshow("hist",hist);
     vector<Mat> text_lines;
     cut_text_line(image,text_lines);

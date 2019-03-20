@@ -9,7 +9,7 @@
 #include <string>
 #include <math.h>
 
-#define PIC "/home/dupeljan/Projects/webinar_analisator/web_analis_opencv/text.png"
+#define PIC "/home/dupeljan/Projects/webinar_analisator/web_analis_opencv/block.png"
 
 #define BOTTOM_STICK_LENGTH 5//11
 #define UPPER_SICK_LENGTH 20//25
@@ -68,7 +68,7 @@ void cut_text_line(Mat in,vector<Mat>& out,int threshold= 1){
             in.rowRange(top,i).copyTo(out[out.size()-1]);
             //out.push_back( in( Rect(top,0,i,in.cols) ) );
             is_line = false;
-            // TODO: compute horizontal hist for piece and cut borders
+            // computing horizontal hist for piece and cut borders
             vector<int> h_hist;
             horizontal_hist(out[out.size()-1],h_hist);
             int left(-1), right;
@@ -84,6 +84,25 @@ void cut_text_line(Mat in,vector<Mat>& out,int threshold= 1){
 
 
 }
+
+void cut_chars(Mat in,vector<Mat>& out,int threshold= 1){
+    vector<int> h_hist;
+    horizontal_hist(in,h_hist);
+    bool is_char = false;
+    int left;
+    for( int i = 0; i < h_hist.size(); i++){
+        if( ! is_char  && 255 - h_hist[i] > threshold ){
+            left = i;
+            is_char = true;
+        }
+        else if( is_char && 255 - h_hist[i] < threshold ){
+            out.resize(out.size() + 1);
+            in.colRange(left,i).copyTo(out[out.size()-1]);
+            is_char = false;
+        }
+    }
+}
+
 void my_inv(Mat in){
     threshold(in,in,127,255,THRESH_BINARY_INV);
 }
@@ -125,7 +144,7 @@ int main(int argc, char *argv[])
                              -2,   0,   2,
                              -1,   0,   1};
     // Prepairing
-    erode(src_gray,src_gray,getStructuringElement(MORPH_RECT,Size(1,10)));
+    erode(src_gray,src_gray,getStructuringElement(MORPH_RECT,Size(1,BOTTOM_STICK_LENGTH)));
     //
     Mat left_border, right_border;
     filter2D(src_gray,left_border,-1, Mat(3,3,CV_32F,left_filter) );
@@ -146,6 +165,7 @@ int main(int argc, char *argv[])
 
     //my_inv(left_border);
     //my_inv(result);
+    // Must to improve:
     erode(result,result,getStructuringElement(MORPH_RECT,Size(30,5)));//добавим
     morphologyEx(result,result,MORPH_OPEN,getStructuringElement(MORPH_RECT,Size(40,5)),Point(-1,-1),2);//добавим
     // end
@@ -186,6 +206,11 @@ int main(int argc, char *argv[])
     cut_text_line(image,text_lines);
     for ( int i = 0; i < text_lines.size(); i++)
         imshow("pice" + to_string(i) ,text_lines[i]);
+
+    vector<Mat> chars;
+    cut_chars(text_lines[0],chars);
+    for ( int i = 0; i < chars.size(); i++)
+        imshow("char" + to_string(i) ,chars[i]);
     /*
     for ( int i = 0; i < pieces.size(); i++)
         imshow("pice" + to_string(i) ,pieces[i]);

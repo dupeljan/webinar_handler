@@ -92,8 +92,13 @@ void cut_words(Mat in,vector<Mat>& out){
 }
 void cut_chars(Mat in,vector<Mat>& out,int threshold= 10){
     const double delta = 1.5;
+    struct character{
+        Mat s;
+        pair<int,int> pos;
+    }
     vector<int> h_hist;
     vector<int> chops;
+    vector<pair<int,int>> pos; // character position
 
     Mat h_hist_pic;
     horizontal_hist(in,h_hist_pic);
@@ -110,11 +115,11 @@ void cut_chars(Mat in,vector<Mat>& out,int threshold= 10){
         else if( is_char && ( 255 - h_hist[i] < threshold || i == h_hist.size() - 1)){
             out.resize(out.size() + 1);
             chops.push_back(i - left);
+            pos.push_back(make_pair(left,i));
             in.colRange(left,i).copyTo(out[out.size()-1]);
             is_char = false;
         }
     }
-
     // Compute median chop
     sort(chops.begin(),chops.end());
     int chop;
@@ -126,10 +131,14 @@ void cut_chars(Mat in,vector<Mat>& out,int threshold= 10){
     for(int i = 0; i < out.size(); i++)
         if(out[i].cols > chop*delta){
            Mat piece[2];
+           pair<int,int> piece_pos = pos[i];
            out[i].colRange(0,out[i].cols / 2).copyTo(piece[0]);
            out[i].colRange(out[i].cols / 2, out[i].cols).copyTo(piece[1]);
+           // update out & pos
            out[i] = piece[0];
+           pos[i] = make_pair(piece_pos.first, (piece_pos.first + piece_pos.second) / 2);
            out.insert(out.begin()+i,piece[1]);
+           pos.insert(pos.begin()+i,make_pair( (piece_pos.first + piece_pos.second) / 2, + piece_pos.second));
            i++;
         }
     // TESTING
@@ -157,9 +166,6 @@ void cut_chars(Mat in,vector<Mat>& out,int threshold= 10){
 
     for(int i = 0; i < words.size(); i++)
         imshow("word " + to_string(i),words[i]);
-
-
-
 
 }
 

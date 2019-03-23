@@ -133,9 +133,9 @@ void cut_chars(Mat in,vector<Mat>& out,int threshold= 10){
            i++;
         }
     // TESTING
-    // Cut words
+    // compute spaces
     bool white_line = false;
-    //vector<pair<int,int>> spaces;
+    vector<pair<int,int>> spaces;
     vector<Mat> words;
     //int left;
     for(int i = 0; i < h_hist.size(); i++)
@@ -143,13 +143,18 @@ void cut_chars(Mat in,vector<Mat>& out,int threshold= 10){
             left = i;
             white_line = true;
         }else if( white_line &&  255 - h_hist[i] > threshold){
-            if(i - left >= chop){
-                words.resize(words.size() + 1);
-                in.colRange(left,i).copyTo(words[words.size()-1]);
-            }
+            if(i - left >= chop)
+               spaces.push_back(make_pair(left,i));
 
             white_line = false;
         }
+    // Cut words
+    words.resize(spaces.size()+1);
+    in.colRange(0,spaces[0].first).copyTo(words[0]);
+    for(int i = 1; i < spaces.size(); i++)
+        in.colRange(spaces[i-1].second,spaces[i].first).copyTo(words[i]);
+    in.colRange(spaces[spaces.size()-1].second,in.cols).copyTo(words[words.size() - 1]);
+
     for(int i = 0; i < words.size(); i++)
         imshow("word " + to_string(i),words[i]);
 

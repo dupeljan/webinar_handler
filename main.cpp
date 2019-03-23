@@ -91,14 +91,19 @@ void cut_words(Mat in,vector<Mat>& out){
 
 }
 void cut_chars(Mat in,vector<Mat>& out,int threshold= 10){
+
+    auto in_set = [](pair<int,int> elem,pair<int,int> set){
+        return set.first <= elem.first && elem.second <= set.second;
+    };
     const double delta = 1.5;
     struct character{
         Mat s;
-        pair<int,int> pos;
-    }
+        pair<int,int> pos; // character position
+    };
+    vector<character> chr_list;
     vector<int> h_hist;
     vector<int> chops;
-    vector<pair<int,int>> pos; // character position
+    //vector<pair<int,int>> pos; // character position
 
     Mat h_hist_pic;
     horizontal_hist(in,h_hist_pic);
@@ -113,10 +118,10 @@ void cut_chars(Mat in,vector<Mat>& out,int threshold= 10){
             is_char = true;
         }
         else if( is_char && ( 255 - h_hist[i] < threshold || i == h_hist.size() - 1)){
-            out.resize(out.size() + 1);
+            chr_list.resize(chr_list.size() + 1);
             chops.push_back(i - left);
-            pos.push_back(make_pair(left,i));
-            in.colRange(left,i).copyTo(out[out.size()-1]);
+            chr_list[chr_list.size()-1].pos = make_pair(left,i);
+            in.colRange(left,i).copyTo(chr_list[chr_list.size()-1].s);
             is_char = false;
         }
     }
@@ -127,25 +132,26 @@ void cut_chars(Mat in,vector<Mat>& out,int threshold= 10){
         chop = (chops[chops.size() / 2] + chops[(chops.size() / 2) + 1]) / 2;
     else
         chop = chops[chops.size() / 2];
+
     // Cut characters
-    for(int i = 0; i < out.size(); i++)
-        if(out[i].cols > chop*delta){
+    for(int i = 0; i < chr_list.size(); i++)
+        if(chr_list[i].s.cols > chop*delta){
            Mat piece[2];
-           pair<int,int> piece_pos = pos[i];
-           out[i].colRange(0,out[i].cols / 2).copyTo(piece[0]);
-           out[i].colRange(out[i].cols / 2, out[i].cols).copyTo(piece[1]);
+           pair<int,int> piece_pos = chr_list[i].pos;
+           chr_list[i].s.colRange(0,chr_list[i].s.cols / 2).copyTo(piece[0]);
+           chr_list[i].s.colRange(chr_list[i].s.cols / 2, chr_list[i].s.cols).copyTo(piece[1]);
            // update out & pos
-           out[i] = piece[0];
-           pos[i] = make_pair(piece_pos.first, (piece_pos.first + piece_pos.second) / 2);
-           out.insert(out.begin()+i,piece[1]);
-           pos.insert(pos.begin()+i,make_pair( (piece_pos.first + piece_pos.second) / 2, + piece_pos.second));
+           chr_list[i] = { piece[0],
+           make_pair(piece_pos.first, (piece_pos.first + piece_pos.second) / 2) };
+           chr_list.insert(chr_list.begin()+i,{ piece[1],
+           make_pair( (piece_pos.first + piece_pos.second) / 2, + piece_pos.second) });
            i++;
         }
     // TESTING
     // compute spaces
     bool white_line = false;
-    vector<pair<int,int>> spaces;
-    vector<Mat> words;
+    vector<pair<int,int>> spaces_pos;
+    //vector<Mat> words;
     //int left;
     for(int i = 0; i < h_hist.size(); i++)
         if(! white_line && 255 - h_hist[i] < threshold){
@@ -153,20 +159,41 @@ void cut_chars(Mat in,vector<Mat>& out,int threshold= 10){
             white_line = true;
         }else if( white_line &&  255 - h_hist[i] > threshold){
             if(i - left >= chop)
-               spaces.push_back(make_pair(left,i));
+               spaces_pos.push_back(make_pair(left,i));
 
             white_line = false;
         }
     // Cut words
-    words.resize(spaces.size()+1);
-    in.colRange(0,spaces[0].first).copyTo(words[0]);
-    for(int i = 1; i < spaces.size(); i++)
-        in.colRange(spaces[i-1].second,spaces[i].first).copyTo(words[i]);
-    in.colRange(spaces[spaces.size()-1].second,in.cols).copyTo(words[words.size() - 1]);
+    vector<vector<Mat>> words       (spaces_pos.size()+1);
+    vector<Mat> words_pic           (spaces_pos.size()+1);
+    vector<pair<int,int>> words_pos (spaces_pos.size()+1);
 
-    for(int i = 0; i < words.size(); i++)
-        imshow("word " + to_string(i),words[i]);
+    // Compute words_pic
+    in.colRange(0,spaces_pos[0].first).copyTo(words_pic[0]);
+    for(int i = 1; i < spaces_pos.size(); i++)
+        in.colRange(spaces_pos[i-1].second,spaces_pos[i].first).copyTo(words_pic[i]);
+    in.colRange(spaces_pos[spaces_pos.size()-1].second,in.cols).copyTo(words_pic[words_pic.size() - 1]);
 
+    for(int i = 0; i < words_pic.size(); i++)
+        imshow("word " + to_string(i),words_pic[i]);
+
+    // Compute words_pos
+    words_pos[0] = make_pair(0,spaces_pos[0].first);
+    for(int i = 1; i < spaces_pos.size(); i++)
+        words_pos[i] = make_pair(spaces_pos[i-1].second,spaces_pos[i].first);
+    words_pos[words_pos.size()-1] = make_pair(spaces_pos[spaces_pos.size()-1].second,in.cols);
+
+    // Compute words
+    for(int i = 0; i < words_pos.size(); i++)
+        for(int j = 0; j < chr_list.size(); j++) // Must to improve!
+            if( in_set(chr_list[j].pos,words_pos[i]) )
+                    words[i].push_back(chr_list[j].s);
+
+    //out.resize(chr_list.size());
+    //for(int i = 0; i < out.size(); i++)
+        //out[i] = chr_list[i].s;
+    for(int i = 0; i < words[3].size(); i++)
+        imshow("word3 ch "+ to_string(i),words[3][i]);
 }
 
 void my_inv(Mat in){

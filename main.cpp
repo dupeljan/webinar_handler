@@ -88,6 +88,7 @@ void cut_text_line(Mat in,vector<Mat>& out,int threshold= 1){
 }
 
 void cut_chars(Mat in,vector<Mat>& out,int threshold= 10){
+    const double delta = 1.5;
     vector<int> h_hist;
     vector<int> chops;
     horizontal_hist(in,h_hist);
@@ -101,7 +102,7 @@ void cut_chars(Mat in,vector<Mat>& out,int threshold= 10){
         else if( is_char && 255 - h_hist[i] < threshold ){
             out.resize(out.size() + 1);
             chops.push_back(i - left);
-            //in.colRange(left,i).copyTo(out[out.size()-1]);
+            in.colRange(left,i).copyTo(out[out.size()-1]);
             is_char = false;
         }
     }
@@ -113,10 +114,17 @@ void cut_chars(Mat in,vector<Mat>& out,int threshold= 10){
     else
         chop = chops[chops.size() / 2];
     // Cut characters
-    int n = in.cols / chop;
-    out.resize(n);
-    for(int i = 0; i < n; i++)
-        in.colRange(i*chop,(i+1)*chop).copyTo(out[i]);
+
+    for(int i = 0; i < out.size(); i++)
+        if(out[i].cols > chop*delta){
+           Mat piece[2];
+           out[i].colRange(0,out[i].cols / 2).copyTo(piece[0]);
+           out[i].colRange(out[i].cols / 2, out[i].cols).copyTo(piece[1]);
+           out[i] = piece[0];
+           out.insert(out.begin()+i,piece[1]);
+           i++;
+        }
+
 
 }
 
@@ -221,7 +229,7 @@ int main(int argc, char *argv[])
     imshow("hist",hist);
     vector<Mat> text_lines;
     cut_text_line(image,text_lines);
-    for ( int i = 0; i < text_lines.size(); i++)
+    for ( int i = 0; i < /*text_lines.size()*/1; i++)
         imshow("pice" + to_string(i) ,text_lines[i]);
 
     vector<Mat> chars;

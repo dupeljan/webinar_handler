@@ -91,6 +91,11 @@ void cut_chars(Mat in,vector<Mat>& out,int threshold= 10){
     const double delta = 1.5;
     vector<int> h_hist;
     vector<int> chops;
+
+    Mat h_hist_pic;
+    horizontal_hist(in,h_hist_pic);
+    imshow("h_hist_pic",h_hist_pic);
+
     horizontal_hist(in,h_hist);
     bool is_char = false;
     int left;
@@ -99,13 +104,15 @@ void cut_chars(Mat in,vector<Mat>& out,int threshold= 10){
             left = i;
             is_char = true;
         }
-        else if( is_char && 255 - h_hist[i] < threshold ){
+        else if( is_char && ( 255 - h_hist[i] < threshold || i == h_hist.size() - 1)){
             out.resize(out.size() + 1);
             chops.push_back(i - left);
             in.colRange(left,i).copyTo(out[out.size()-1]);
             is_char = false;
         }
     }
+
+
     // Compute median chop
     sort(chops.begin(),chops.end());
     int chop;
@@ -114,7 +121,6 @@ void cut_chars(Mat in,vector<Mat>& out,int threshold= 10){
     else
         chop = chops[chops.size() / 2];
     // Cut characters
-
     for(int i = 0; i < out.size(); i++)
         if(out[i].cols > chop*delta){
            Mat piece[2];
@@ -229,11 +235,11 @@ int main(int argc, char *argv[])
     imshow("hist",hist);
     vector<Mat> text_lines;
     cut_text_line(image,text_lines);
-    for ( int i = 0; i < /*text_lines.size()*/1; i++)
+    for ( int i = 0; i < /*text_lines.size()*/2; i++)
         imshow("pice" + to_string(i) ,text_lines[i]);
 
     vector<Mat> chars;
-    cut_chars(text_lines[0],chars);
+    cut_chars(text_lines[1],chars);
     for ( int i = 0; i < chars.size(); i++)
         imshow("char" + to_string(i) ,chars[i]);
     /*

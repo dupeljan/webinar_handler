@@ -6,6 +6,8 @@
 #include <opencv2/imgproc.hpp>
 
 #include <iostream>
+#include <algorithm>
+#include <set>
 #include <string>
 #include <math.h>
 
@@ -85,8 +87,9 @@ void cut_text_line(Mat in,vector<Mat>& out,int threshold= 1){
 
 }
 
-void cut_chars(Mat in,vector<Mat>& out,int threshold= 1){
+void cut_chars(Mat in,vector<Mat>& out,int threshold= 10){
     vector<int> h_hist;
+    vector<int> chops;
     horizontal_hist(in,h_hist);
     bool is_char = false;
     int left;
@@ -97,10 +100,24 @@ void cut_chars(Mat in,vector<Mat>& out,int threshold= 1){
         }
         else if( is_char && 255 - h_hist[i] < threshold ){
             out.resize(out.size() + 1);
-            in.colRange(left,i).copyTo(out[out.size()-1]);
+            chops.push_back(i - left);
+            //in.colRange(left,i).copyTo(out[out.size()-1]);
             is_char = false;
         }
     }
+    // Compute median chop
+    sort(chops.begin(),chops.end());
+    int chop;
+    if ( chops.size() % 2 )
+        chop = (chops[chops.size() / 2] + chops[(chops.size() / 2) + 1]) / 2;
+    else
+        chop = chops[chops.size() / 2];
+    // Cut characters
+    int n = in.cols / chop;
+    out.resize(n);
+    for(int i = 0; i < n; i++)
+        in.colRange(i*chop,(i+1)*chop).copyTo(out[i]);
+
 }
 
 void my_inv(Mat in){

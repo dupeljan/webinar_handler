@@ -87,6 +87,9 @@ void cut_text_line(Mat in,vector<Mat>& out,int threshold= 1){
 
 }
 
+void cut_words(Mat in,vector<Mat>& out){
+
+}
 void cut_chars(Mat in,vector<Mat>& out,int threshold= 10){
     const double delta = 1.5;
     vector<int> h_hist;
@@ -112,7 +115,6 @@ void cut_chars(Mat in,vector<Mat>& out,int threshold= 10){
         }
     }
 
-
     // Compute median chop
     sort(chops.begin(),chops.end());
     int chop;
@@ -130,6 +132,28 @@ void cut_chars(Mat in,vector<Mat>& out,int threshold= 10){
            out.insert(out.begin()+i,piece[1]);
            i++;
         }
+    // TESTING
+    // Cut words
+    bool white_line = false;
+    //vector<pair<int,int>> spaces;
+    vector<Mat> words;
+    //int left;
+    for(int i = 0; i < h_hist.size(); i++)
+        if(! white_line && 255 - h_hist[i] < threshold){
+            left = i;
+            white_line = true;
+        }else if( white_line &&  255 - h_hist[i] > threshold){
+            if(i - left >= chop){
+                words.resize(words.size() + 1);
+                in.colRange(left,i).copyTo(words[words.size()-1]);
+            }
+
+            white_line = false;
+        }
+    for(int i = 0; i < words.size(); i++)
+        imshow("word " + to_string(i),words[i]);
+
+
 
 
 }

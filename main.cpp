@@ -13,13 +13,140 @@
 
 #define PIC "/home/dupeljan/Projects/webinar_analisator/web_analis_opencv/block.png"
 
-#define BOTTOM_STICK_LENGTH 5//11
-#define UPPER_SICK_LENGTH 20//25
+#define BOTTOM_STICK_LENGTH 10//11
+#define UPPER_SICK_LENGTH 25//25
 
 using namespace cv;
 using namespace std;
 
-void vertical_hist(Mat src, Mat& dst,int cols = 250){
+void vertical_hist(Mat src, Mat& dst,int cols = 250);
+void vertical_hist(Mat src,vector<int>& hist);
+void horizontal_hist(Mat src, Mat& dst,int rows = 180);
+void horizontal_hist(Mat src,vector<int>& hist);
+void cut_text_line(Mat in,vector<Mat>& out,int threshold= 1);
+void cut_words(Mat in,vector<vector<Mat>>& out,int threshold= 10);
+void my_inv(Mat in);
+
+int main(int argc, char *argv[]){
+
+    string imageName(PIC);
+    Mat image,src_gray,grad;
+    RNG rng(12345);
+
+    image = imread(imageName.c_str(), IMREAD_COLOR); // Read the file
+
+    if( image.empty() )                      // Check for invalid input
+    {
+        cout <<  "Could not open or find the image" << std::endl ;
+        return -1;
+    }
+    Mat gaus_im;
+
+    GaussianBlur(image, gaus_im, Size(3, 3), 0, 0, BORDER_DEFAULT);
+
+    cvtColor(gaus_im, src_gray, COLOR_BGR2GRAY);
+
+    threshold(src_gray,src_gray,180,255,THRESH_BINARY );
+
+   // addWeighted(abs_grad_x, 0.5, abs_grad_y, 0.5, 0, grad);
+
+    Mat morphology_out;
+    //morphologyEx(grad,morphology_out,MORPH_CLOSE, getStructuringElement( MORPH_RECT,Size(3,3) ) );
+
+    //Mat inv;
+    //threshold(morphology_out,inv,127,255,THRESH_BINARY_INV);
+    // end Canny
+
+    // My filter
+    float left_filter[9] = {1,  0,   -1,
+                           2,   0,   -2,
+                           1,   0,   -1};
+    float right_filter[9] = {-1,  0,   1,
+                             -2,   0,   2,
+                             -1,   0,   1};
+    // Prepairing
+    erode(src_gray,src_gray,getStructuringElement(MORPH_RECT,Size(1,BOTTOM_STICK_LENGTH)));
+    //
+    Mat left_border, right_border;
+    filter2D(src_gray,left_border,-1, Mat(3,3,CV_32F,left_filter) );
+    filter2D(src_gray,right_border,-1, Mat(3,3,CV_32F,right_filter));
+    Mat my_filtered;
+    addWeighted(left_border,1,right_border,1,0,left_border);
+    // end filter
+    //my_inv(my_filtered);
+    // Start morphology
+    Mat mask;
+    //erode(left_border,result,getStructuringElement(MORPH_RECT,Size(1,20)));
+    // оставляем палки длинны от bottom до upper
+    morphologyEx(left_border,left_border,MORPH_OPEN,getStructuringElement(MORPH_RECT,Size(1,BOTTOM_STICK_LENGTH)));// нижняя граница
+    morphologyEx(left_border,mask,MORPH_OPEN,getStructuringElement(MORPH_RECT,Size(1,UPPER_SICK_LENGTH)));// верхняя граница
+    my_inv(left_border);//инвертируем
+    Mat result;
+    addWeighted(left_border,1,mask,1,0,result);//Соединияем
+
+    imshow("intermediate result",result);
+    //my_inv(left_border);
+    //my_inv(result);
+    // Must to improve:
+    erode(result,result,getStructuringElement(MORPH_RECT,Size(15,5)));//добавим
+    imshow("after erode",result);
+    morphologyEx(result,result,MORPH_OPEN,getStructuringElement(MORPH_RECT,Size(UPPER_SICK_LENGTH * 25/20,5)),Point(-1,-1),3);//добавим
+    imshow("after opening",result);
+    morphologyEx(result,result,MORPH_CLOSE,getStructuringElement(MORPH_RECT,Size(10,UPPER_SICK_LENGTH * 20/25)));// Уберем
+    // end
+    /*
+    int n = 10;
+    Mat vect[n];
+    namedWindow( "Display window", WINDOW_AUTOSIZE ); // Create a window for display.
+    for ( int i = 1; i < n; i++){
+         erode(my_filtered,vect[i],getStructuringElement(MORPH_RECT,Size(i*10,5)));
+         imshow(to_string(i*10),vect[i]);
+    }
+    */
+    //cvtColor(result,result,COLOR_GRAY2BGR);
+    //my_inv(result);
+    //Mat conduct = image & result;
+
+    // gen bounding rect
+    vector<vector<Point> > contours;
+    findContours( result, contours, RETR_TREE, CHAIN_APPROX_SIMPLE, Point(0, 0) );
+    vector<Rect> boundRect( contours.size() );
+    vector<Mat> pieces( contours.size());
+    for( size_t i = 0; i < contours.size(); i++ ){
+        boundRect[i] = boundingRect( Mat(contours[i]) );
+        Scalar color = Scalar( rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
+        //drawContours( image, contours, (int)i, color);
+        rectangle(image,boundRect[i],color);
+        pieces[i] = image(boundRect[i]);
+    }
+
+    imshow( "left_border", left_border);                // Show our image inside it.
+    imshow("result",result);
+    imshow("gray",src_gray);
+    imshow("image",image);
+    /*
+    vector<Mat> text_lines;
+    cut_text_line(image,text_lines);
+    for ( int i = 0; i < 2; i++)
+        imshow("pice" + to_string(i) ,text_lines[i]);
+
+    vector<Mat> chars;
+    cut_chars(text_lines[3],chars);
+    for ( int i = 0; i < chars.size(); i++)
+        imshow("char" + to_string(i) ,chars[i]);
+     */
+    /*
+    for ( int i = 0; i < pieces.size(); i++)
+        imshow("pice" + to_string(i) ,pieces[i]);
+    */
+    //imshow("conduct",conduct);
+    waitKey(0); // Wait for a keystroke in the window
+    return 0;
+}
+
+
+
+void vertical_hist(Mat src, Mat& dst,int cols /*= 250*/){
     dst = Mat::zeros(src.rows,cols,src.type());
     //rectangle(dst,Point(0,0),Point(src.rows,cols),Scalar(255,255,255));
     //int rows = int(50/*columns.size()*/);
@@ -38,7 +165,7 @@ void vertical_hist(Mat src,vector<int>& hist){
         hist[i] = (int)trunc( sum(src.row(i))[0] / (double) src.cols );
 }
 
-void horizontal_hist(Mat src, Mat& dst,int rows = 180){
+void horizontal_hist(Mat src, Mat& dst,int rows /*= 180*/){
     dst = Mat::zeros(rows,src.cols,src.type());
 
     for (int i = 0; i < src.cols; i++){
@@ -54,7 +181,7 @@ void horizontal_hist(Mat src,vector<int>& hist){
         hist[i] = (int)trunc( sum(src.col(i))[0] / (double) src.rows );
 }
 
-void cut_text_line(Mat in,vector<Mat>& out,int threshold= 1){
+void cut_text_line(Mat in,vector<Mat>& out,int threshold /*= 1*/){
     vector<int> v_hist;
     vertical_hist(in,v_hist);
     bool is_line = false;
@@ -87,10 +214,7 @@ void cut_text_line(Mat in,vector<Mat>& out,int threshold= 1){
 
 }
 
-void cut_words(Mat in,vector<Mat>& out){
-
-}
-void cut_chars(Mat in,vector<Mat>& out,int threshold= 10){
+void cut_words(Mat in,vector<vector<Mat>>& out,int threshold /*= 10*/){
 
     auto in_set = [](pair<int,int> elem,pair<int,int> set){
         return set.first <= elem.first && elem.second <= set.second;
@@ -99,12 +223,11 @@ void cut_chars(Mat in,vector<Mat>& out,int threshold= 10){
     struct character{
         Mat s;
         pair<int,int> pos; // character position
-        //bool operator<(const character& rhs) const { pos.first < rhs.pos.first  ; }
     };
     vector<character> chr_list;
     vector<int> h_hist;
     vector<int> chops;
-    //vector<pair<int,int>> pos; // character position
+
 
     Mat h_hist_pic;
     horizontal_hist(in,h_hist_pic);
@@ -150,11 +273,9 @@ void cut_chars(Mat in,vector<Mat>& out,int threshold= 10){
         }
     // Sort chr_list
     sort(chr_list.begin(),chr_list.end(),[](character lhs, character rhs) { return lhs.pos.first < rhs.pos.first; });
-    // TESTING
     // compute spaces
     bool white_line = false;
     vector<pair<int,int>> spaces_pos;
-    //vector<Mat> words;
     //int left;
     for(int i = 0; i < h_hist.size(); i++)
         if(! white_line && 255 - h_hist[i] < threshold){
@@ -171,6 +292,7 @@ void cut_chars(Mat in,vector<Mat>& out,int threshold= 10){
     vector<Mat> words_pic           (spaces_pos.size()+1);
     vector<pair<int,int>> words_pos (spaces_pos.size()+1);
 
+    /*
     // Compute words_pic
     in.colRange(0,spaces_pos[0].first).copyTo(words_pic[0]);
     for(int i = 1; i < spaces_pos.size(); i++)
@@ -179,7 +301,7 @@ void cut_chars(Mat in,vector<Mat>& out,int threshold= 10){
 
     for(int i = 0; i < words_pic.size(); i++)
         imshow("word " + to_string(i),words_pic[i]);
-
+    */
     // Compute words_pos
     words_pos[0] = make_pair(0,spaces_pos[0].first);
     for(int i = 1; i < spaces_pos.size(); i++)
@@ -194,128 +316,16 @@ void cut_chars(Mat in,vector<Mat>& out,int threshold= 10){
         words[j].push_back(chr_list[i].s);
      }
 
+    out = words;
     //out.resize(chr_list.size());
     //for(int i = 0; i < out.size(); i++)
         //out[i] = chr_list[i].s;
-    for(int j = 0; j < words.size(); j++)
-        for(int i = 0; i < words[j].size(); i++)
-            imshow("word3 ch "+ to_string(j) +to_string(i),words[j][i]);
+
+  for(int i = 0; i < words[4].size(); i++)
+      imshow("word3 ch " +to_string(i),words[4][i]);
 }
 
 void my_inv(Mat in){
     threshold(in,in,127,255,THRESH_BINARY_INV);
-}
-int main(int argc, char *argv[])
-{
-    string imageName(PIC);
-    Mat image,src_gray,grad;
-    RNG rng(12345);
-
-    image = imread(imageName.c_str(), IMREAD_COLOR); // Read the file
-
-    if( image.empty() )                      // Check for invalid input
-    {
-        cout <<  "Could not open or find the image" << std::endl ;
-        return -1;
-    }
-    Mat gaus_im;
-
-    GaussianBlur(image, gaus_im, Size(3, 3), 0, 0, BORDER_DEFAULT);
-
-    cvtColor(gaus_im, src_gray, COLOR_BGR2GRAY);
-
-    threshold(src_gray,src_gray,180,255,THRESH_BINARY );
-
-   // addWeighted(abs_grad_x, 0.5, abs_grad_y, 0.5, 0, grad);
-
-    Mat morphology_out;
-    //morphologyEx(grad,morphology_out,MORPH_CLOSE, getStructuringElement( MORPH_RECT,Size(3,3) ) );
-
-    Mat inv;
-    threshold(morphology_out,inv,127,255,THRESH_BINARY_INV);
-    // end Canny
-
-    // My filter
-    float left_filter[9] = {1,  0,   -1,
-                           2,   0,   -2,
-                           1,   0,   -1};
-    float right_filter[9] = {-1,  0,   1,
-                             -2,   0,   2,
-                             -1,   0,   1};
-    // Prepairing
-    erode(src_gray,src_gray,getStructuringElement(MORPH_RECT,Size(1,BOTTOM_STICK_LENGTH)));
-    //
-    Mat left_border, right_border;
-    filter2D(src_gray,left_border,-1, Mat(3,3,CV_32F,left_filter) );
-    filter2D(src_gray,right_border,-1, Mat(3,3,CV_32F,right_filter));
-    Mat my_filtered;
-    addWeighted(left_border,1,right_border,1,0,left_border);
-    // end filter
-    //my_inv(my_filtered);
-    // Start morphology
-    Mat mask;
-    //erode(left_border,result,getStructuringElement(MORPH_RECT,Size(1,20)));
-    // оставляем палки длинны от bottom до upper
-    morphologyEx(left_border,left_border,MORPH_OPEN,getStructuringElement(MORPH_RECT,Size(1,BOTTOM_STICK_LENGTH)));// нижняя граница
-    morphologyEx(left_border,mask,MORPH_OPEN,getStructuringElement(MORPH_RECT,Size(1,UPPER_SICK_LENGTH)));// верхняя граница
-    my_inv(left_border);//инвертируем
-    Mat result;
-    addWeighted(left_border,1,mask,1,0,result);//Соединияем
-
-    //my_inv(left_border);
-    //my_inv(result);
-    // Must to improve:
-    erode(result,result,getStructuringElement(MORPH_RECT,Size(30,5)));//добавим
-    morphologyEx(result,result,MORPH_OPEN,getStructuringElement(MORPH_RECT,Size(40,5)),Point(-1,-1),2);//добавим
-    // end
-    /*
-    int n = 10;
-    Mat vect[n];
-    namedWindow( "Display window", WINDOW_AUTOSIZE ); // Create a window for display.
-    for ( int i = 1; i < n; i++){
-         erode(my_filtered,vect[i],getStructuringElement(MORPH_RECT,Size(i*10,5)));
-         imshow(to_string(i*10),vect[i]);
-    }
-    */
-    //cvtColor(result,result,COLOR_GRAY2BGR);
-    //my_inv(result);
-    //Mat conduct = image & result;
-
-    // gen bounding rect
-    vector<vector<Point> > contours;
-    findContours( result, contours, RETR_TREE, CHAIN_APPROX_SIMPLE, Point(0, 0) );
-    vector<Rect> boundRect( contours.size() );
-    vector<Mat> pieces( contours.size());
-    for( size_t i = 0; i < contours.size(); i++ ){
-        boundRect[i] = boundingRect( Mat(contours[i]) );
-        Scalar color = Scalar( rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
-        //drawContours( image, contours, (int)i, color);
-        //rectangle(image,boundRect[i],color);
-        pieces[i] = image(boundRect[i]);
-    }
-
-    imshow( "left_border", left_border);                // Show our image inside it.
-    imshow("result",result);
-    imshow("gray",src_gray);
-    imshow("image",image);
-    Mat hist;
-    horizontal_hist(image,hist);
-    imshow("hist",hist);
-    vector<Mat> text_lines;
-    cut_text_line(image,text_lines);
-    for ( int i = 0; i < /*text_lines.size()*/2; i++)
-        imshow("pice" + to_string(i) ,text_lines[i]);
-
-    vector<Mat> chars;
-    cut_chars(text_lines[1],chars);
-    for ( int i = 0; i < chars.size(); i++)
-        imshow("char" + to_string(i) ,chars[i]);
-    /*
-    for ( int i = 0; i < pieces.size(); i++)
-        imshow("pice" + to_string(i) ,pieces[i]);
-    */
-    //imshow("conduct",conduct);
-    waitKey(0); // Wait for a keystroke in the window
-    return 0;
 }
 

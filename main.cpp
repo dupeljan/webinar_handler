@@ -99,6 +99,7 @@ void cut_chars(Mat in,vector<Mat>& out,int threshold= 10){
     struct character{
         Mat s;
         pair<int,int> pos; // character position
+        //bool operator<(const character& rhs) const { pos.first < rhs.pos.first  ; }
     };
     vector<character> chr_list;
     vector<int> h_hist;
@@ -147,6 +148,8 @@ void cut_chars(Mat in,vector<Mat>& out,int threshold= 10){
            make_pair( (piece_pos.first + piece_pos.second) / 2, + piece_pos.second) });
            i++;
         }
+    // Sort chr_list
+    sort(chr_list.begin(),chr_list.end(),[](character lhs, character rhs) { return lhs.pos.first < rhs.pos.first; });
     // TESTING
     // compute spaces
     bool white_line = false;
@@ -184,16 +187,19 @@ void cut_chars(Mat in,vector<Mat>& out,int threshold= 10){
     words_pos[words_pos.size()-1] = make_pair(spaces_pos[spaces_pos.size()-1].second,in.cols);
 
     // Compute words
-    for(int i = 0; i < words_pos.size(); i++)
-        for(int j = 0; j < chr_list.size(); j++) // Must to improve!
-            if( in_set(chr_list[j].pos,words_pos[i]) )
-                    words[i].push_back(chr_list[j].s);
+
+    for(int i = 0, j = 0; i < chr_list.size(); i++){
+        if( chr_list[i].pos.second > words_pos[j].second )
+            j++;
+        words[j].push_back(chr_list[i].s);
+     }
 
     //out.resize(chr_list.size());
     //for(int i = 0; i < out.size(); i++)
         //out[i] = chr_list[i].s;
-    for(int i = 0; i < words[3].size(); i++)
-        imshow("word3 ch "+ to_string(i),words[3][i]);
+    for(int j = 0; j < words.size(); j++)
+        for(int i = 0; i < words[j].size(); i++)
+            imshow("word3 ch "+ to_string(j) +to_string(i),words[j][i]);
 }
 
 void my_inv(Mat in){

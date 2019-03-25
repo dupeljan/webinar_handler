@@ -11,10 +11,10 @@
 #include <string>
 #include <math.h>
 
-#define PIC "/home/dupeljan/Projects/webinar_analisator/web_analis_opencv/block.png"
+#define PIC "/home/dupeljan/Projects/webinar_analisator/web_analis_opencv/block1.png"
 
-#define BOTTOM_STICK_LENGTH 10//11
-#define UPPER_SICK_LENGTH 25//25
+#define BOTTOM_STICK_LENGTH 7//11
+#define UPPER_SICK_LENGTH 20//25
 
 using namespace cv;
 using namespace std;
@@ -88,11 +88,20 @@ int main(int argc, char *argv[]){
     //my_inv(left_border);
     //my_inv(result);
     // Must to improve:
+    //
+    //
+    Mat element = getStructuringElement(cv::MORPH_RECT, cv::Size(5, 5) );
+    erode(result,result,getStructuringElement(MORPH_RECT,Size(15,5)));
+    morphologyEx(result, result, MORPH_OPEN, element,Point(-1,-1),3);
+    /*
     erode(result,result,getStructuringElement(MORPH_RECT,Size(15,5)));//добавим
     imshow("after erode",result);
     morphologyEx(result,result,MORPH_OPEN,getStructuringElement(MORPH_RECT,Size(UPPER_SICK_LENGTH * 25/20,5)),Point(-1,-1),3);//добавим
     imshow("after opening",result);
     morphologyEx(result,result,MORPH_CLOSE,getStructuringElement(MORPH_RECT,Size(10,UPPER_SICK_LENGTH * 20/25)));// Уберем
+    */
+    //
+    //
     // end
     /*
     int n = 10;

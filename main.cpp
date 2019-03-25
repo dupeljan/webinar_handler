@@ -11,7 +11,7 @@
 #include <string>
 #include <math.h>
 
-#define PIC "/home/dupeljan/Projects/webinar_analisator/web_analis_opencv/block1.png"
+#define PIC "/home/dupeljan/Projects/webinar_analisator/web_analis_opencv/block.png"
 
 #define BOTTOM_STICK_LENGTH 7//11
 #define UPPER_SICK_LENGTH 20//25
@@ -125,7 +125,7 @@ int main(int argc, char *argv[]){
         boundRect[i] = boundingRect( Mat(contours[i]) );
         Scalar color = Scalar( rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
         //drawContours( image, contours, (int)i, color);
-        rectangle(image,boundRect[i],color);
+        //rectangle(image,boundRect[i],color);
         pieces[i] = image(boundRect[i]);
     }
 
@@ -133,17 +133,17 @@ int main(int argc, char *argv[]){
     imshow("result",result);
     imshow("gray",src_gray);
     imshow("image",image);
-    /*
+
     vector<Mat> text_lines;
     cut_text_line(image,text_lines);
-    for ( int i = 0; i < 2; i++)
+    for ( int i = 0; i < text_lines.size() && i < 5; i++)
         imshow("pice" + to_string(i) ,text_lines[i]);
 
-    vector<Mat> chars;
-    cut_chars(text_lines[3],chars);
-    for ( int i = 0; i < chars.size(); i++)
-        imshow("char" + to_string(i) ,chars[i]);
-     */
+    vector<vector<Mat>> words;
+    cut_words(text_lines[1],words);
+    for ( int i = 0; i < words[1].size(); i++)
+        imshow("char" + to_string(i) ,words[1][i]);
+
     /*
     for ( int i = 0; i < pieces.size(); i++)
         imshow("pice" + to_string(i) ,pieces[i]);
@@ -330,8 +330,6 @@ void cut_words(Mat in,vector<vector<Mat>>& out,int threshold /*= 10*/){
     //for(int i = 0; i < out.size(); i++)
         //out[i] = chr_list[i].s;
 
-  for(int i = 0; i < words[4].size(); i++)
-      imshow("word3 ch " +to_string(i),words[4][i]);
 }
 
 void my_inv(Mat in){

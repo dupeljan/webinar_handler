@@ -11,10 +11,10 @@
 #include <string>
 #include <math.h>
 
-#define PIC "/home/dupeljan/Projects/webinar_analisator/web_analis_opencv/block.png"
+#define PIC "/home/dupeljan/Projects/webinar_analisator/web_analis_opencv/ex.png"
 
-#define BOTTOM_STICK_LENGTH 7//11
-#define UPPER_SICK_LENGTH 20//25
+#define BOTTOM_STICK_LENGTH 11//11
+#define UPPER_SICK_LENGTH 25//25
 
 using namespace cv;
 using namespace std;
@@ -90,16 +90,17 @@ int main(int argc, char *argv[]){
     // Must to improve:
     //
     //
+    /*
     Mat element = getStructuringElement(cv::MORPH_RECT, cv::Size(5, 5) );
     erode(result,result,getStructuringElement(MORPH_RECT,Size(15,5)));
     morphologyEx(result, result, MORPH_OPEN, element,Point(-1,-1),3);
-    /*
+    */
     erode(result,result,getStructuringElement(MORPH_RECT,Size(15,5)));//добавим
     imshow("after erode",result);
     morphologyEx(result,result,MORPH_OPEN,getStructuringElement(MORPH_RECT,Size(UPPER_SICK_LENGTH * 25/20,5)),Point(-1,-1),3);//добавим
     imshow("after opening",result);
     morphologyEx(result,result,MORPH_CLOSE,getStructuringElement(MORPH_RECT,Size(10,UPPER_SICK_LENGTH * 20/25)));// Уберем
-    */
+
     //
     //
     // end
@@ -125,7 +126,7 @@ int main(int argc, char *argv[]){
         boundRect[i] = boundingRect( Mat(contours[i]) );
         Scalar color = Scalar( rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
         //drawContours( image, contours, (int)i, color);
-        //rectangle(image,boundRect[i],color);
+        rectangle(image,boundRect[i],color);
         pieces[i] = image(boundRect[i]);
     }
 
@@ -133,7 +134,7 @@ int main(int argc, char *argv[]){
     imshow("result",result);
     imshow("gray",src_gray);
     imshow("image",image);
-
+    /*
     vector<Mat> text_lines;
     cut_text_line(image,text_lines);
     for ( int i = 0; i < text_lines.size() && i < 5; i++)
@@ -143,7 +144,7 @@ int main(int argc, char *argv[]){
     cut_words(text_lines[1],words);
     for ( int i = 0; i < words[1].size(); i++)
         imshow("char" + to_string(i) ,words[1][i]);
-
+    */
     /*
     for ( int i = 0; i < pieces.size(); i++)
         imshow("pice" + to_string(i) ,pieces[i]);

@@ -11,10 +11,10 @@
 #include <string>
 #include <math.h>
 
-#define PIC "/home/dupeljan/Projects/webinar_analisator/web_analis_opencv/block.png"
+#define PIC "/home/dupeljan/Projects/webinar_analisator/web_analis_opencv/slides/test.png"
 
 #define BOTTOM_STICK_LENGTH 7//11
-#define UPPER_SICK_LENGTH 20//25
+#define UPPER_SICK_LENGTH 25//25
 
 using namespace cv;
 using namespace std;
@@ -27,6 +27,10 @@ void cut_text_line(Mat in,vector<Mat>& out,int threshold= 1);
 void cut_words(Mat in,vector<vector<Mat>>& out,int threshold= 10);
 void my_inv(Mat in);
 
+void add_white_border(Mat src, Mat &dst, int border_size = 1);
+void vec_imshow(string name, vector<Mat> src);
+bool same_shape(Mat a, Rect b);
+
 int main(int argc, char *argv[]){
 
     string imageName(PIC);
@@ -35,6 +39,7 @@ int main(int argc, char *argv[]){
 
     image = imread(imageName.c_str(), IMREAD_COLOR); // Read the file
 
+    add_white_border(image,image,50);
     if( image.empty() )                      // Check for invalid input
     {
         cout <<  "Could not open or find the image" << std::endl ;
@@ -83,23 +88,30 @@ int main(int argc, char *argv[]){
     my_inv(left_border);//инвертируем
     Mat result;
     addWeighted(left_border,1,mask,1,0,result);//Соединияем
-
+    morphologyEx(result,result,MORPH_CLOSE,getStructuringElement(MORPH_RECT,Size(1,BOTTOM_STICK_LENGTH)));// нижняя граница
     imshow("intermediate result",result);
+
     //my_inv(left_border);
     //my_inv(result);
     // Must to improve:
     //
     //
+    /*
     Mat element = getStructuringElement(cv::MORPH_RECT, cv::Size(5, 5) );
     erode(result,result,getStructuringElement(MORPH_RECT,Size(15,5)));
     morphologyEx(result, result, MORPH_OPEN, element,Point(-1,-1),3);
-    /*
-    erode(result,result,getStructuringElement(MORPH_RECT,Size(15,5)));//добавим
-    imshow("after erode",result);
-    morphologyEx(result,result,MORPH_OPEN,getStructuringElement(MORPH_RECT,Size(UPPER_SICK_LENGTH * 25/20,5)),Point(-1,-1),3);//добавим
-    imshow("after opening",result);
-    morphologyEx(result,result,MORPH_CLOSE,getStructuringElement(MORPH_RECT,Size(10,UPPER_SICK_LENGTH * 20/25)));// Уберем
     */
+    //erode(result,result,getStructuringElement(MORPH_RECT,Size(15,5)));//добавим
+    //imshow("after erode",result);
+    morphologyEx(result,result,MORPH_OPEN,getStructuringElement(MORPH_RECT,Size(UPPER_SICK_LENGTH * 25/20,2)),Point(-1,-1),3);//добавим
+    morphologyEx(result,result,MORPH_CLOSE,getStructuringElement(MORPH_RECT,Size(5,BOTTOM_STICK_LENGTH)));// нижняя граница
+    //Mat dist;
+    //add_white_border(result,result);
+    //add_white_border(image,image);
+    //imshow("ins img",dist);
+    //imshow("after opening",result);
+   // morphologyEx(result,result,MORPH_CLOSE,getStructuringElement(MORPH_RECT,Size(10,UPPER_SICK_LENGTH * 20/25)));// Уберем
+
     //
     //
     // end
@@ -120,29 +132,32 @@ int main(int argc, char *argv[]){
     vector<vector<Point> > contours;
     findContours( result, contours, RETR_TREE, CHAIN_APPROX_SIMPLE, Point(0, 0) );
     vector<Rect> boundRect( contours.size() );
-    vector<Mat> pieces( contours.size());
+    vector<Mat> pieces ;//( contours.size());
     for( size_t i = 0; i < contours.size(); i++ ){
         boundRect[i] = boundingRect( Mat(contours[i]) );
         Scalar color = Scalar( rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
         //drawContours( image, contours, (int)i, color);
         //rectangle(image,boundRect[i],color);
-        pieces[i] = image(boundRect[i]);
+        if (! same_shape(image, boundRect[i] ) )
+            pieces.push_back(image(boundRect[i]));
     }
 
-    imshow( "left_border", left_border);                // Show our image inside it.
     imshow("result",result);
     imshow("gray",src_gray);
     imshow("image",image);
+    vec_imshow("pieces",pieces);
 
+    threshold(pieces[2],src_gray,180,255,THRESH_BINARY );
     vector<Mat> text_lines;
-    cut_text_line(image,text_lines);
+    cut_text_line(src_gray,text_lines);
+    imshow("gray",src_gray);
     for ( int i = 0; i < text_lines.size() && i < 5; i++)
         imshow("pice" + to_string(i) ,text_lines[i]);
 
     vector<vector<Mat>> words;
-    cut_words(text_lines[1],words);
-    for ( int i = 0; i < words[1].size(); i++)
-        imshow("char" + to_string(i) ,words[1][i]);
+    cut_words(text_lines[0],words);
+    for ( int i = 0; i < words[0].size(); i++)
+        imshow("char" + to_string(i) ,words[0][i]);
 
     /*
     for ( int i = 0; i < pieces.size(); i++)
@@ -218,6 +233,10 @@ void cut_text_line(Mat in,vector<Mat>& out,int threshold /*= 1*/){
             }
         }
 
+    }
+    if (!out.size()){
+        out.resize(1);
+        in.copyTo(out[0]);
     }
 
 
@@ -312,10 +331,13 @@ void cut_words(Mat in,vector<vector<Mat>>& out,int threshold /*= 10*/){
         imshow("word " + to_string(i),words_pic[i]);
     */
     // Compute words_pos
-    words_pos[0] = make_pair(0,spaces_pos[0].first);
-    for(int i = 1; i < spaces_pos.size(); i++)
-        words_pos[i] = make_pair(spaces_pos[i-1].second,spaces_pos[i].first);
-    words_pos[words_pos.size()-1] = make_pair(spaces_pos[spaces_pos.size()-1].second,in.cols);
+    if( spaces_pos.size()){
+        words_pos[0] = make_pair(0,spaces_pos[0].first);
+        for(int i = 1; i < spaces_pos.size(); i++)
+            words_pos[i] = make_pair(spaces_pos[i-1].second,spaces_pos[i].first);
+        words_pos[words_pos.size()-1] = make_pair(spaces_pos[spaces_pos.size()-1].second,in.cols);
+    } else
+        words_pos[0] = make_pair(0,h_hist.size());
 
     // Compute words
 
@@ -336,3 +358,18 @@ void my_inv(Mat in){
     threshold(in,in,127,255,THRESH_BINARY_INV);
 }
 
+void add_white_border(Mat src,Mat& dst,int border_size /*= 1*/){
+    dst = Mat::zeros(src.rows + 2 * border_size,src.cols + 2 * border_size,src.type());
+    dst = Scalar(255,255,255);
+    Mat insetImage(dst, Rect(border_size,border_size, src.cols, src.rows ));
+    src.copyTo(insetImage);
+}
+
+void vec_imshow(string name, vector<Mat> src){
+    for(int i = 0; i < src.size();i++)
+        imshow(name + ' ' + to_string(i),src[i]);
+}
+
+bool same_shape(Mat a, Rect b){
+    return ( a.cols == b.height ) && ( a.rows == b.width );
+}

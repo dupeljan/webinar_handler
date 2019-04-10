@@ -12,7 +12,7 @@
 #include <math.h>
 
 
-#define PIC "/home/dupeljan/Projects/webinar_analisator/web_analis_opencv/slides/test.png"
+#define PIC "/home/dupeljan/Projects/webinar_analisator/web_analis_opencv/slides/4.png"
 
 #define BOTTOM_STICK_LENGTH 7//11
 #define UPPER_SICK_LENGTH 25//25
@@ -26,11 +26,18 @@ void horizontal_hist(Mat src, Mat& dst,int rows = 180);
 void horizontal_hist(Mat src,vector<int>& hist);
 void cut_text_line(Mat in,vector<Mat>& out,int threshold= 1);
 void cut_words(Mat in,vector<vector<Mat>>& out,int threshold= 10);
+
 void my_inv(Mat in);
+void my_grad(Mat src, Mat &dst);
+void find_draw_contours(Mat src, vector<Rect> &dst);
 
 void add_white_border(Mat src, Mat &dst, int border_size = 1);
 void vec_imshow(string name, vector<Mat> src);
+void thresh_otsu(Mat src,Mat &dst);
 bool same_shape(Mat a, Rect b);
+bool piece_is_word(Mat dst, int threshold = 1);
+
+
 
 int main(int argc, char *argv[]){
 
@@ -147,6 +154,29 @@ int main(int argc, char *argv[]){
     imshow("gray",src_gray);
     imshow("image",image);
 
+    Mat thres;
+    my_grad(pieces[0],thres);
+    morphologyEx(thres,thres,MORPH_OPEN,getStructuringElement(MORPH_RECT,Size(8,5)));
+    vector<Rect> b_rect;
+    find_draw_contours(thres,b_rect);
+    pieces.clear();
+    for(int i = 0; i < b_rect.size(); i++ )
+        if (! same_shape(image, b_rect[i] ) )
+            pieces.push_back(image(b_rect[i]));
+    //vec_imshow("p",pieces);
+    for (int i = 0; i < pieces.size(); i++)
+        imshow( ( piece_is_word(pieces[i]) )? "word" + to_string(i) : "trash" + to_string(i), pieces[i]  );
+    imshow("thres",thres);
+
+    vector<vector<Mat>> words;
+    //GaussianBlur(pieces[3], pieces[3], Size(3, 3), 0, 0, BORDER_DEFAULT);
+    //thresh_otsu(pieces[3],pieces[3]);
+    //cvtColor(pieces[3],pieces[3],COLOR_BGR2GRAY);
+    //adaptiveThreshold(pieces[3],pieces[3],255,ADAPTIVE_THRESH_GAUSSIAN_C, THRESH_BINARY,3,0);
+    //my_inv(pieces[3]);
+    //cut_words(pieces[3],words,5);
+    //vec_imshow("words",words[0]);
+/*
     vec_imshow("pieces",pieces);
 
     threshold(pieces[2],src_gray,180,255,THRESH_BINARY );
@@ -160,7 +190,7 @@ int main(int argc, char *argv[]){
     cut_words(text_lines[0],words);
     for ( int i = 0; i < words[0].size(); i++)
         imshow("char" + to_string(i) ,words[0][i]);
-
+*/
     /*
     for ( int i = 0; i < pieces.size(); i++)
         imshow("pice" + to_string(i) ,pieces[i]);
@@ -356,6 +386,96 @@ void cut_words(Mat in,vector<vector<Mat>>& out,int threshold /*= 10*/){
 
 }
 
+void my_grad(Mat src,Mat& dst){
+
+    Mat src_gray;
+    thresh_otsu(src,src_gray);
+    //cvtColor(src, src_gray, COLOR_BGR2GRAY);
+    //threshold(src_gray,src_gray, 0, 255, THRESH_BINARY_INV | THRESH_OTSU);
+    //threshold(src_gray,src_gray,127,255,THRESH_BINARY_INV);
+
+    float left_filter[9] = {1,  0,   -1,
+                           2,   0,   -2,
+                           1,   0,   -1};
+    float right_filter[9] = {-1,  0,   1,
+                             -2,   0,   2,
+                             -1,   0,   1};
+
+    Mat left_border, right_border;
+    filter2D(src_gray,left_border,-1, Mat(3,3,CV_32F,left_filter) );
+    filter2D(src_gray,right_border,-1, Mat(3,3,CV_32F,right_filter));
+    Mat my_filtered;
+    addWeighted(left_border,1,right_border,1,0,dst);
+    my_inv(dst);
+
+}
+
+void find_draw_contours(Mat src,vector<Rect> &dst){
+
+    vector<vector<Point> > contours;
+    findContours( src, contours, RETR_TREE, CHAIN_APPROX_SIMPLE, Point(0, 0) );
+    dst.resize( contours.size() );
+    //vector<Mat> pieces ;//( contours.size());
+    for( size_t i = 0; i < contours.size(); i++ ){
+        dst[i] = boundingRect( Mat(contours[i]) );
+        //Scalar color = Scalar( rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
+        //drawContours( dst, contours, (int)i, color);
+        //rectangle(dst,boundRect[i],Scalar(0,0,0));
+        //if (! same_shape(image, boundRect[i] ) )
+        //    pieces.push_back(image(boundRect[i]));
+
+    }
+}
+
+bool piece_is_word(Mat dst,int threshold /*= 1*/){
+    //Mat h_hist_pic;
+    vector<int> h_hist;
+    vector<int> chops;
+    //horizontal_hist(dst,h_hist_pic);
+    //imshow("h_hist_pic",h_hist_pic);
+
+    thresh_otsu(dst,dst);
+    my_inv(dst);
+    /*
+    // Try to cut line
+    vector<Mat> line;
+    cut_text_line(dst,line);
+    // if not one line
+    if ( line.size() > 1 )
+        return false;
+    dst = line[0];
+    */
+    horizontal_hist(dst,h_hist);
+    bool is_char = false;
+    int left;
+    for( int i = 0; i < h_hist.size(); i++){
+        if( ! is_char  && 255 - h_hist[i] > threshold ){
+            left = i;
+            is_char = true;
+        }
+        else if( is_char && ( 255 - h_hist[i] < threshold || i == h_hist.size() - 1)){
+            chops.push_back(i - left);
+            is_char = false;
+        }
+    }
+    if ( !chops.size() )
+        return false;
+
+    sort(chops.begin(),chops.end());
+    int chop;
+    if ( chops.size() % 2 )
+        chop = (chops[chops.size() / 2] + chops[(chops.size() / 2) + 1]) / 2;
+    else
+        chop = chops[chops.size() / 2];
+    double l_proport = dst.rows / (double)chop;
+    //double r_proport = dst.rows / (double)(*min_element(chops.begin(),chops.end()));
+    return ( 1 / 3. <= l_proport && l_proport <= 3 /*&& 1 / 3. <= r_proport && r_proport <= 5*/ )? true : false;
+}
+
+void thresh_otsu(Mat src,Mat &dst){
+    cvtColor(src, dst, COLOR_BGR2GRAY);
+    threshold(dst,dst, 0, 255, THRESH_BINARY_INV | THRESH_OTSU);
+}
 void my_inv(Mat in){
     threshold(in,in,127,255,THRESH_BINARY_INV);
 }

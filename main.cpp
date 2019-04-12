@@ -13,7 +13,7 @@
 #include <numeric>
 
 
-#define PIC "/home/dupeljan/Projects/webinar_analisator/web_analis_opencv/slides/test2.png"
+#define PIC "/home/dupeljan/Projects/webinar_analisator/web_analis_opencv/slides/4.png"
 
 #define BOTTOM_STICK_LENGTH 7//11
 #define UPPER_SICK_LENGTH 25//25
@@ -25,7 +25,12 @@ struct Piece{
     Mat pic;
     Rect coord;
 };
-
+/*
+inline bool operator==(const Rect& lhs, const Rect& rhs){ return lhs.x == rhs.x and\
+                                                                 lhs.y == rhs.y and\
+                                                                 lhs.height == rhs.height and\
+                                                                 lhs.width  == rhs.width; }
+*/
 void vertical_hist(Mat src, Mat& dst,int cols = 250);
 void vertical_hist(Mat src,vector<int>& hist);
 void horizontal_hist(Mat src, Mat& dst,int rows = 180);
@@ -33,16 +38,21 @@ void horizontal_hist(Mat src,vector<int>& hist);
 void cut_text_line(Mat in,vector<Mat>& out,int threshold= 1);
 void cut_words(Mat in,vector<vector<Mat>>& out,int threshold= 10);
 void drop_non_text(Piece src, Piece &dst);
+void drop_non_text(vector<Piece> src,vector<Piece> &dst);
+void filter_pieces(Mat src_img, vector<Piece> src_vec, vector<Piece> &dst);
 
 void my_inv(Mat in);
 void my_grad(Mat src, Mat &dst);
 void find_bound_rects(Mat src, vector<Rect> &dst);
+void to_Piece(vector<Mat> pic, vector<Rect> rect, vector<Piece> &dst);
 
 void add_white_border(Mat src, Mat &dst, int border_size = 1);
 void vec_imshow(string name, vector<Mat> src);
+void vec_imshow(string name, vector<Piece> src);
 void thresh_otsu(Mat src,Mat &dst);
 bool same_shape(Mat a, Rect b);
 bool piece_is_word(Mat dst, int threshold = 1);
+bool is_white(Mat src);
 int expected_value(vector<int> row);
 int median(vector<int> row);
 
@@ -145,26 +155,35 @@ int main(int argc, char *argv[]){
 
     // gen bounding rect
     vector<vector<Point> > contours;
+    Mat countoured_image = image.clone();
     findContours( result, contours, RETR_TREE, CHAIN_APPROX_SIMPLE, Point(0, 0) );
     vector<Rect> boundRect( contours.size() );
-    vector<Mat> pieces ;//( contours.size());
+    vector<Mat> pieces ( contours.size());
     for( size_t i = 0; i < contours.size(); i++ ){
         boundRect[i] = boundingRect( Mat(contours[i]) );
         Scalar color = Scalar( rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
         //drawContours( image, contours, (int)i, color);
-        //rectangle(image,boundRect[i],color);
-        if (! same_shape(image, boundRect[i] ) )
-            pieces.push_back(image(boundRect[i]));
+        rectangle(countoured_image,boundRect[i],color);
+        pieces[i] = image(boundRect[i]);
+        //if (! same_shape(image, boundRect[i] ) )
+          //  pieces.push_back(image(boundRect[i]));
 
     }
 
     imshow("result",result);
     imshow("gray",src_gray);
     imshow("image",image);
+    imshow("countoured_image",countoured_image);
+
     //vec_imshow("p",pieces);
-    Piece just_piece = {image,Rect(0,0,image.cols,image.rows)};
-    drop_non_text(just_piece,just_piece);
-    imshow("new piece",just_piece.pic);
+    vector<Piece> filtered_pieces;
+    to_Piece(pieces,boundRect,filtered_pieces);
+    filter_pieces(image,filtered_pieces,filtered_pieces);
+    drop_non_text(filtered_pieces,filtered_pieces);
+    vec_imshow("p",filtered_pieces);
+//    Piece just_piece = {image,Rect(0,0,image.cols,image.rows)};
+//    drop_non_text(just_piece,just_piece);
+//    imshow("new piece",just_piece.pic);
     // drop not text pieces
 
     vector<vector<Mat>> words;
@@ -409,7 +428,6 @@ void drop_non_text(Piece src,Piece &dst){
     if ( pieces.size() ){
         // bound text
         Rect bound;
-        // Error here
         bound.x = min_element(pieces.begin(),pieces.end(),[](Rect l, Rect r){ return l.x  < r.x; }) -> x;
         bound.y = min_element(pieces.begin(),pieces.end(),[](Rect l, Rect r){ return l.y  < r.y; }) -> y;
         Rect tmp;
@@ -431,6 +449,15 @@ void drop_non_text(Piece src,Piece &dst){
         //    non_text.insert(b_rect[i]);
     //imshow("thres",thres);
 }
+
+void drop_non_text(vector<Piece> src,vector<Piece> &dst){
+    for( auto &x : src ){
+        drop_non_text(x,x);
+        if ( ! is_white(x.pic) )
+            dst.push_back(x);
+    }
+}
+
 void my_grad(Mat src,Mat& dst){
 
     Mat src_gray;
@@ -482,7 +509,7 @@ void find_bound_rects(Mat src,vector<Rect> &dst){
     }
     // filter
     // TODO: remove nested contours
-    auto it = remove_if(dst.begin(), dst.end(),[src](Rect i){return same_shape(src,i);} );
+    auto it = remove_if(dst.begin(), dst.end(),[src](Rect i){ return same_shape(src,i);} );
     dst.erase(it, dst.end());
 }
 
@@ -536,10 +563,16 @@ void thresh_otsu(Mat src,Mat &dst){
     cvtColor(src, dst, COLOR_BGR2GRAY);
     threshold(dst,dst, 127, 255, THRESH_BINARY_INV | THRESH_OTSU);
 }
+
 void my_inv(Mat in){
     threshold(in,in,127,255,THRESH_BINARY_INV);
 }
 
+void filter_pieces(Mat src_img, vector<Piece> src_vec, vector<Piece> &dst){
+    Rect image_shape = Rect(0,0,src_img.cols,src_img.rows);
+    auto it = remove_copy_if(src_vec.begin(),src_vec.end(),dst.begin(),[image_shape](Piece i){ return i.coord == image_shape;});
+    dst.erase(it,dst.end());
+}
 void add_white_border(Mat src,Mat& dst,int border_size /*= 1*/){
     dst = Mat::zeros(src.rows + 2 * border_size,src.cols + 2 * border_size,src.type());
     dst = Scalar(255,255,255);
@@ -552,10 +585,16 @@ void vec_imshow(string name, vector<Mat> src){
         imshow(name + ' ' + to_string(i),src[i]);
 }
 
+void vec_imshow(string name, vector<Piece> src){
+    for(int i = 0; i < src.size();i++)
+        imshow(name + ' ' + to_string(i),src[i].pic);
+}
+
 bool same_shape(Mat a, Rect b){
-    bool x = ( a.cols == b.width ) && ( a.rows == b.height );
+    //bool x = ( a.cols == b.width ) && ( a.rows == b.height );
     return ( a.cols == b.width ) && ( a.rows == b.height );
 }
+
 
 int expected_value(vector<int> row){
     int sum = 0;
@@ -571,5 +610,16 @@ int median(vector<int> row){
     return ( row.size() % 2 && row.size() > 1 )? \
                 (row[row.size() / 2] + row[(row.size() / 2) + 1]) / 2 :\
                  row[row.size() / 2];
+}
 
+bool is_white(Mat src){
+   cvtColor(src, src, COLOR_BGR2GRAY);
+   my_inv(src);
+   return ( ! countNonZero(src) );
+}
+
+void to_Piece(vector<Mat> pic, vector<Rect> rect, vector<Piece> &dst){
+    size_t size = min(pic.size(),rect.size());
+    for(size_t i = 0; i < size; i++)
+        dst.push_back({pic[i],rect[i]});
 }

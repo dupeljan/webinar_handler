@@ -389,8 +389,8 @@ void cut_words(Mat in,vector<vector<Mat>>& out,int threshold /*= 10*/){
 void drop_non_text(Piece src,Piece &dst){
     Mat thres;
     my_grad(src.pic,thres);
-    morphologyEx(thres,thres,MORPH_OPEN,getStructuringElement(MORPH_RECT,Size(8,5)));
     imshow("piiic",thres);
+    morphologyEx(thres,thres,MORPH_OPEN,getStructuringElement(MORPH_RECT,Size(8,5)));
     vector<Rect> b_rect;
     find_bound_rects(thres,b_rect);
     dst = src;
@@ -454,8 +454,12 @@ void my_grad(Mat src,Mat& dst){
     Mat my_filtered;
     addWeighted(left_border,1,right_border,1,0,dst);
     */
-
+    vector<vector<Point>> contours;
     Canny( src_gray, dst, 50, 150);
+    imshow("canny",dst);
+    findContours( dst, contours,RETR_TREE, CHAIN_APPROX_SIMPLE, Point(0, 0) );
+    for(int i = 0; i < contours.size();i++)
+        drawContours(dst, contours,i, Scalar(255, 255, 255), FILLED);
     my_inv(dst);
 
 }

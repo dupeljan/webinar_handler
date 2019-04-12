@@ -456,6 +456,7 @@ void my_grad(Mat src,Mat& dst){
     */
     vector<vector<Point>> contours;
     Canny( src_gray, dst, 50, 150);
+    dilate(dst,dst,getStructuringElement(MORPH_RECT,Size(3,3)));
     imshow("canny",dst);
     findContours( dst, contours,RETR_TREE, CHAIN_APPROX_SIMPLE, Point(0, 0) );
     for(int i = 0; i < contours.size();i++)
@@ -480,6 +481,7 @@ void find_bound_rects(Mat src,vector<Rect> &dst){
 
     }
     // filter
+    // TODO: remove nested contours
     auto it = remove_if(dst.begin(), dst.end(),[src](Rect i){return same_shape(src,i);} );
     dst.erase(it, dst.end());
 }

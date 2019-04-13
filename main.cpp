@@ -49,7 +49,9 @@ void to_Piece(vector<Mat> pic, vector<Rect> rect, vector<Piece> &dst);
 void add_white_border(Mat src, Mat &dst, int border_size = 1);
 void vec_imshow(string name, vector<Mat> src);
 void vec_imshow(string name, vector<Piece> src);
+void show_rects(Mat src, vector<Rect> rects, string title);
 void thresh_otsu(Mat src,Mat &dst);
+void my_find_contours(Mat src, vector<Rect> &b_rect);
 bool same_shape(Mat a, Rect b);
 bool piece_is_word(Mat dst, int threshold = 1);
 bool is_white(Mat src);
@@ -408,20 +410,21 @@ void cut_words(Mat in,vector<vector<Mat>>& out,int threshold /*= 10*/){
 void drop_non_text(Piece src,Piece &dst){
     Mat thres;
     my_grad(src.pic,thres);
-    imshow("piiic",thres);
     morphologyEx(thres,thres,MORPH_OPEN,getStructuringElement(MORPH_RECT,Size(8,5)));
+    imshow("piiic",thres);
     vector<Rect> b_rect;
     find_bound_rects(thres,b_rect);
+    show_rects(thres,b_rect,"contured thres");
     dst = src;
     //set<Rect> non_text;
     vector<Rect> pieces;
     for(int i = 0; i < b_rect.size(); i++ ){
         Mat piece = src.pic(b_rect[i]);
-        imshow("h" + to_string(i), piece);
-        if ( ! piece_is_word(piece) )
+        //imshow("h" + to_string(i), piece);
+        if (  piece_is_word(piece) )
             // fill him white
-            rectangle(dst.pic,b_rect[i],Scalar(255,255,255),FILLED);
-        else
+            //rectangle(dst.pic,b_rect[i],Scalar(255,255,255),FILLED);
+        //else
             pieces.push_back(b_rect[i]);
 
     }
@@ -441,7 +444,7 @@ void drop_non_text(Piece src,Piece &dst){
         dst.coord.y += bound.y;
         dst.coord.width =  bound.width;
         dst.coord.height = bound.height;
-}
+    }
     //copy_if(b_rect.begin(),b_rect.end(),back_inserter(non_text),[](Rect x){return piece_is_word(src(x));});
     //for (int i = 0; i < pieces.size(); i++)
         //imshow( ( piece_is_word(pieces[i]))? "word" + to_string(i) : "trash" + to_string(i), pieces[i]  );
@@ -451,6 +454,7 @@ void drop_non_text(Piece src,Piece &dst){
 }
 
 void drop_non_text(vector<Piece> src,vector<Piece> &dst){
+    dst.clear();
     for( auto &x : src ){
         drop_non_text(x,x);
         if ( ! is_white(x.pic) )
@@ -494,19 +498,8 @@ void my_grad(Mat src,Mat& dst){
 
 void find_bound_rects(Mat src,vector<Rect> &dst){
 
-    vector<vector<Point> > contours;
-    findContours( src, contours, RETR_LIST, CHAIN_APPROX_SIMPLE, Point(0, 0) );
-    dst.resize( contours.size() );
-    //vector<Mat> pieces ;//( contours.size());
-    for( size_t i = 0; i < contours.size(); i++ ){
-        dst[i] = boundingRect( Mat(contours[i]) );
-        //Scalar color = Scalar( rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
-        //drawContours( dst, contours, (int)i, color);
-        //rectangle(dst,boundRect[i],Scalar(0,0,0));
-        //if (! same_shape(image, boundRect[i] ) )
-        //    pieces.push_back(image(boundRect[i]));
+    my_find_contours( src, dst);
 
-    }
     // filter
     // TODO: remove nested contours
     auto it = remove_if(dst.begin(), dst.end(),[src](Rect i){ return same_shape(src,i);} );
@@ -564,6 +557,25 @@ void thresh_otsu(Mat src,Mat &dst){
     threshold(dst,dst, 127, 255, THRESH_BINARY_INV | THRESH_OTSU);
 }
 
+void my_find_contours(Mat src,vector<Rect> &b_rect){
+    // Extent src pic
+    const int border = 10;
+    Rect src_shape = Rect(0,0,src.cols,src.rows);
+    add_white_border(src,src,border);
+
+    vector<vector<Point>> contours;
+    findContours( src, contours, RETR_LIST, CHAIN_APPROX_SIMPLE, Point(0, 0) );
+
+    b_rect.resize(contours.size());
+    for( size_t i = 0; i < contours.size(); i++ ){
+        b_rect[i] = boundingRect( Mat(contours[i]) );
+        // Shift contours
+        b_rect[i].x = max(0, b_rect[i].x - border);
+        b_rect[i].y = max(0, b_rect[i].y - border);
+        b_rect[i].width = min(  src_shape.width  - b_rect[i].x, b_rect[i].width );
+        b_rect[i].height = min( src_shape.height - b_rect[i].y, b_rect[i].height);
+    }
+}
 void my_inv(Mat in){
     threshold(in,in,127,255,THRESH_BINARY_INV);
 }
@@ -623,3 +635,15 @@ void to_Piece(vector<Mat> pic, vector<Rect> rect, vector<Piece> &dst){
     for(size_t i = 0; i < size; i++)
         dst.push_back({pic[i],rect[i]});
 }
+
+void show_rects(Mat src, vector<Rect> rects,string title){
+    RNG rng(12345);
+
+    for( auto &x : rects ){
+        Scalar color = Scalar( rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
+        //drawContours( image, contours, (int)i, color);
+        rectangle(src,x,color);
+    }
+    imshow(title,src);
+}
+

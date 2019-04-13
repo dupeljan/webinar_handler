@@ -12,9 +12,12 @@
 #include <math.h>
 #include <numeric>
 
+#include "video_handler.h"
 
-#define PIC "/home/dupeljan/Projects/webinar_analisator/web_analis_opencv/slides/4.png"
+#define PIC "/home/dupeljan/Projects/webinar_analisator/web_analis_opencv/slides/3.png"
 
+#define SLIDE_DEBUG 0
+#define VIDEO_DEBUG 1
 #define BOTTOM_STICK_LENGTH 7//11
 #define UPPER_SICK_LENGTH 25//25
 
@@ -61,6 +64,9 @@ int median(vector<int> row);
 
 int main(int argc, char *argv[]){
 
+#if VIDEO_DEBUG == 1
+    video_main();
+#elif SLIDE_DEBUG == 1
     string imageName(PIC);
     Mat image,src_gray,grad;
     RNG rng(12345);
@@ -218,6 +224,8 @@ int main(int argc, char *argv[]){
     //imshow("conduct",conduct);
     waitKey(0); // Wait for a keystroke in the window
     return 0;
+
+#endif
 }
 
 

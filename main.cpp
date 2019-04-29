@@ -13,53 +13,16 @@
 #include <numeric>
 
 #include "video_handler.h"
+#include "img_handler.h"
 
 #define PIC "/home/dupeljan/Projects/webinar_analisator/web_analis_opencv/slides/3.png"
 
 #define SLIDE_DEBUG 0
 #define VIDEO_DEBUG 1
-#define BOTTOM_STICK_LENGTH 7//11
-#define UPPER_SICK_LENGTH 25//25
+
 
 using namespace cv;
 using namespace std;
-
-struct Piece{
-    Mat pic;
-    Rect coord;
-};
-/*
-inline bool operator==(const Rect& lhs, const Rect& rhs){ return lhs.x == rhs.x and\
-                                                                 lhs.y == rhs.y and\
-                                                                 lhs.height == rhs.height and\
-                                                                 lhs.width  == rhs.width; }
-*/
-void vertical_hist(Mat src, Mat& dst,int cols = 250);
-void vertical_hist(Mat src,vector<int>& hist);
-void horizontal_hist(Mat src, Mat& dst,int rows = 180);
-void horizontal_hist(Mat src,vector<int>& hist);
-void cut_text_line(Mat in,vector<Mat>& out,int threshold= 1);
-void cut_words(Mat in,vector<vector<Mat>>& out,int threshold= 10);
-void drop_non_text(Piece src, Piece &dst);
-void drop_non_text(vector<Piece> src,vector<Piece> &dst);
-void filter_pieces(Mat src_img, vector<Piece> src_vec, vector<Piece> &dst);
-
-void my_inv(Mat in);
-void my_grad(Mat src, Mat &dst);
-void find_bound_rects(Mat src, vector<Rect> &dst);
-void to_Piece(vector<Mat> pic, vector<Rect> rect, vector<Piece> &dst);
-
-void add_white_border(Mat src, Mat &dst, int border_size = 1);
-void vec_imshow(string name, vector<Mat> src);
-void vec_imshow(string name, vector<Piece> src);
-void show_rects(Mat src, vector<Rect> rects, string title);
-void thresh_otsu(Mat src,Mat &dst);
-void my_find_contours(Mat src, vector<Rect> &b_rect);
-bool same_shape(Mat a, Rect b);
-bool piece_is_word(Mat dst, int threshold = 1);
-bool is_white(Mat src);
-int expected_value(vector<int> row);
-int median(vector<int> row);
 
 
 int main(int argc, char *argv[]){
@@ -565,23 +528,31 @@ void thresh_otsu(Mat src,Mat &dst){
     threshold(dst,dst, 127, 255, THRESH_BINARY_INV | THRESH_OTSU);
 }
 
-void my_find_contours(Mat src,vector<Rect> &b_rect){
-    // Extent src pic
-    const int border = 10;
-    Rect src_shape = Rect(0,0,src.cols,src.rows);
-    add_white_border(src,src,border);
+void my_find_contours(Mat src,vector<Rect> &b_rect,int border /*=10*/){
 
     vector<vector<Point>> contours;
-    findContours( src, contours, RETR_LIST, CHAIN_APPROX_SIMPLE, Point(0, 0) );
 
-    b_rect.resize(contours.size());
-    for( size_t i = 0; i < contours.size(); i++ ){
-        b_rect[i] = boundingRect( Mat(contours[i]) );
-        // Shift contours
-        b_rect[i].x = max(0, b_rect[i].x - border);
-        b_rect[i].y = max(0, b_rect[i].y - border);
-        b_rect[i].width = min(  src_shape.width  - b_rect[i].x, b_rect[i].width );
-        b_rect[i].height = min( src_shape.height - b_rect[i].y, b_rect[i].height);
+    if (! border ){
+        findContours( src, contours, RETR_LIST, CHAIN_APPROX_SIMPLE, Point(0, 0) );
+        for( size_t i = 0; i < contours.size(); i++ )
+            b_rect[i] = boundingRect( Mat(contours[i]) );
+    }
+    else{
+        // Extent src pic
+        Rect src_shape = Rect(0,0,src.cols,src.rows);
+        add_white_border(src,src,border);
+
+        findContours( src, contours, RETR_LIST, CHAIN_APPROX_SIMPLE, Point(0, 0) );
+
+        b_rect.resize(contours.size());
+        for( size_t i = 0; i < contours.size(); i++ ){
+            b_rect[i] = boundingRect( Mat(contours[i]) );
+            // Shift contours
+            b_rect[i].x = max(0, b_rect[i].x - border);
+            b_rect[i].y = max(0, b_rect[i].y - border);
+            b_rect[i].width = min(  src_shape.width  - b_rect[i].x, b_rect[i].width );
+            b_rect[i].height = min( src_shape.height - b_rect[i].y, b_rect[i].height);
+        }
     }
 }
 void my_inv(Mat in){

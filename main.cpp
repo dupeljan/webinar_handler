@@ -477,6 +477,11 @@ void find_bound_rects(Mat src,vector<Rect> &dst){
     dst.erase(it, dst.end());
 }
 
+void find_bound_rects_rgb(Mat src,vector<Rect> &b_rect){
+    cvtColor(src,src,COLOR_BGR2GRAY);
+    find_bound_rects(src,b_rect);
+}
+
 bool piece_is_word(Mat dst,int threshold /*= 1*/){
     //Mat h_hist_pic;
     vector<int> h_hist;
@@ -541,7 +546,6 @@ void my_find_contours(Mat src,vector<Rect> &b_rect,int border /*=10*/){
         // Extent src pic
         Rect src_shape = Rect(0,0,src.cols,src.rows);
         add_white_border(src,src,border);
-
         findContours( src, contours, RETR_LIST, CHAIN_APPROX_SIMPLE, Point(0, 0) );
 
         b_rect.resize(contours.size());

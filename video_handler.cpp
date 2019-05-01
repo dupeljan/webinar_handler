@@ -8,15 +8,22 @@
 #define DEBUG_VIDEO 1
 
 int video_main(){
+    /*
     Mat a = imread(PIC_A, IMREAD_COLOR);
     Mat b = imread(PIC_B, IMREAD_COLOR);
     vec_imshow("inp",{a,b});
     double result = cmp(a,b);
     cout << result << endl;
-    /*
+    */
     VideoCapture cap(VIDEO_PATCH); // open the default camera
     if(!cap.isOpened())  // check if we succeeded
         return -1;
+
+    Cursor cursor;
+    cursor.find_cursor(cap,15,1000);
+    imshow("cursor",cursor.get());
+    waitKey(0);
+    /*
 
     size_t time = 300000;
     cap.set(CAP_PROP_POS_MSEC,time);
@@ -51,52 +58,86 @@ int video_main(){
     */
     //video.release();
     // the camera will be deinitialized automatically in VideoCapture destructor
-    waitKey(0); // Wait for a keystroke in the window
+    //waitKey(0); // Wait for a keystroke in the window
     return 0;
 }
 
 // Cursor
+void Cursor::find_bound_rects_diff(){
+    threshold_diff();
+    find_bound_rects(diff.diff,b_rects);
+    filter_rects();
+}
+
+void Cursor::threshold_diff(){
+    cvtColor(diff.diff,diff.diff,COLOR_BGR2GRAY);
+    threshold(diff.diff,diff.diff,127,255,THRESH_BINARY);
+    morphologyEx(diff.diff,diff.diff,MORPH_OPEN,getStructuringElement(MORPH_RECT,Size(5,5)));// нижняя граница
+}
+
+void Cursor::filter_rects(){
+    Mat x = diff.diff;
+    //cvtColor(diff.diff,x,COLOR_BGR2GRAY);
+    auto it = remove_if(b_rects.begin(), b_rects.end(),[x](Rect i){ return i.area() < MIN_CURSOR_AREA /*|| ! countNonZero(x)*/; } );
+    b_rects.erase(it, b_rects.end());
+}
+
 void Cursor::find_cursor(VideoCapture cap, int hit_lim, int shift){
-    vector<Rect>  b_rects;
-    Mat diff;
-    //size_t frame_count = cap.get(CAP_PROP_FRAME_COUNT);
-    const float accuracy = 0.9;
-    //function<bool(VideoCapture)> EoF = [frame_count](VideoCapture cap){ return cap.get(CAP_PROP_POS_FRAMES) >= frame_count;};
-    function<bool(pair<int,Mat>,pair<int,Mat>)> cmp_first = [](pair<int,Mat> x,pair<int,Mat> y){
+    //size_t frame_count = cap.get(CAP_PROP_FRAME_CURSOR_AREA _COUNT);
+    const float accuracy = 0.95;
+    function<bool(pair<int,Mat>,pair<int,Mat>)> cmp_first =
+    [](pair<int,Mat> x,pair<int,Mat> y){
         return x.first < y.first;
     };
 
     while(! b_rects.size() ){
         shift_video_get_difference(cap,shift,diff);
-        if (diff.empty())
+        if (diff.diff.empty())
             break;
-        find_bound_rects(diff,b_rects);
+
+        find_bound_rects_diff();
+        //threshold_diff();
+        //show_rects(diff.diff,b_rects,"diff");
+        //waitKey(0);
     }
+
     // Inicialize chain
     vector<pair<int,Mat>> chains;
     for( auto &x : b_rects)
-        chains.push_back(make_pair(1,diff(x)));
+        chains.push_back(make_pair(1,diff.second(x)));
+
     if ( chains.size() ){
         while( max_element(chains.begin(),chains.end(),cmp_first)->first < hit_lim  ){
 
             shift_video_get_difference(cap,shift,diff);
-            if(diff.empty())
+            if(diff.diff.empty())
                 break;
-            find_bound_rects(diff,b_rects);
+            find_bound_rects_diff();
+            //show_rects(diff.diff,b_rects,"diff");
+            //waitKey(0);
 
+            set<int> visited;
+            vector<pair<int,Mat>> append;
             for(auto &rect : b_rects){
                 bool find = false;
-                Mat piece = diff(rect);
-                for ( auto chain = chains.begin(); chain != chains.end() && !find; chain++ )
-                    if ( cmp(piece,chain->second) >= accuracy ){
-                        chain->first++;
+                Mat piece = diff.second(rect);
+                for ( size_t i = 0; i < chains.size(); i++)
+                    if ( cmp(piece,chains[i].second) >= accuracy ){
+                        if (visited.find(i) == visited.end()){
+                            //imshow("piece",piece);
+                            //imshow("chains[i].second",chains[i].second);
+                            //waitKey(0);
+                            chains[i].first++;
+                            visited.insert(i);
+                        }
                         find = true;
                     }
                     // if don't find appropriate template
-                    if ( !find )
+                if ( !find )
                     // add rectangile to the chains
-                        chains.push_back(make_pair(1,piece));
+                    append.push_back(make_pair(1,piece));
             }
+            chains.insert(chains.end(),append.begin(),append.end());
         }
 
 
@@ -107,6 +148,13 @@ void Cursor::find_cursor(VideoCapture cap, int hit_lim, int shift){
 // end Cursor
 
 double cmp(Mat x, Mat y){
+    // if one piece area much more than another
+    // then they different
+    const double area_diff = 2;
+    auto area_x = x.cols * x.rows;
+    auto area_y = y.cols * y.rows;
+    if ( max(area_x,area_y) / (double) min(area_x,area_y) > area_diff )
+        return 0;
     // make x in y shape
     auto shape = cmp_shape(x,y);
     if ( shape != cmp_enum::equal){
@@ -145,7 +193,7 @@ double cmp(Mat x, Mat y){
     thresh_otsu(x,mask);
     cvtColor(mask,mask,COLOR_GRAY2BGR);
 #if DEBUG_VIDEO == 1
-    imshow("mask",mask);
+    //imshow("mask",mask);
 #endif
     matchTemplate(y,x,map,match_method,mask);
     normalize( map, map, 0, 1, NORM_MINMAX, -1, Mat() );
@@ -154,29 +202,31 @@ double cmp(Mat x, Mat y){
     Point matchLoc;
     minMaxLoc( map, &minVal, &maxVal, &minLoc, &maxLoc, Mat() );
 
-    imshow("map",map);
+    //imshow("map",map);
     if( match_method  == TM_SQDIFF || match_method == TM_SQDIFF_NORMED )
         { matchLoc = minLoc; }
     else
         { matchLoc = maxLoc; }
-#if DEBUG_VIDEO == 1
-    rectangle(y,Rect(matchLoc.x,matchLoc.y,x.rows,x.cols),Scalar(255,255,0),1);
-    imshow("find piece here",y);
-#endif
+
+    //rectangle(y,Rect(matchLoc.x,matchLoc.y,x.rows,x.cols),Scalar(255,255,0),1);
+    //imshow("find piece here",y);
+
     // compare pieces
     Mat cmp_result;
-    matchTemplate(x,y(Rect(matchLoc.x,matchLoc.y,x.rows,x.cols)),cmp_result,TM_SQDIFF,mask);
+    matchTemplate(x,y(Rect(matchLoc.x,matchLoc.y,x.cols,x.rows)),cmp_result,TM_SQDIFF,mask);
     //cout << endl << cmp_result.type() << endl;
+    double res;
     switch (cmp_result.type()) {
-        case CV_8U:  return cmp_result.at<uchar>(0,0);
-        case CV_8S:  return cmp_result.at<schar>(0,0);
-        case CV_16U: return cmp_result.at<ushort>(0,0);
-        case CV_16S: return cmp_result.at<short>(0,0);
-        case CV_32S: return cmp_result.at<int>(0,0);
-        case CV_32F: return cmp_result.at<float>(0,0);
-        case CV_64F: return cmp_result.at<double>(0,0);
+        case CV_8U:  res = cmp_result.at<uchar> (0,0);break;
+        case CV_8S:  res = cmp_result.at<schar> (0,0);break;
+        case CV_16U: res = cmp_result.at<ushort>(0,0);break;
+        case CV_16S: res = cmp_result.at<short> (0,0);break;
+        case CV_32S: res = cmp_result.at<int>   (0,0);break;
+        case CV_32F: res = cmp_result.at<float> (0,0);break;
+        case CV_64F: res = cmp_result.at<double>(0,0);break;
         default:     return 0;
     }
+    return 1 - res / 255.;
 
 }
 
@@ -190,17 +240,18 @@ cmp_enum cmp_shape(Mat x, Mat y){
     return cmp_enum::cross;
 }
 
-void shift_video_get_difference(VideoCapture src, int shift, Mat &dst){
-    Mat frame[2];
+void shift_video_get_difference(VideoCapture src, int shift, Diff_dict &dst){
+    Mat frame[3];
     src >> frame[0];
     size_t current_pos = src.get(CAP_PROP_POS_FRAMES);
     if ( current_pos + shift < src.get(CAP_PROP_FRAME_COUNT) /* Might be a param */ ){
         src.set(CAP_PROP_POS_FRAMES,current_pos + shift);
         src >> frame[1];
         src.set(CAP_PROP_POS_FRAMES,current_pos + shift - 1);
-        absdiff(frame[1],frame[0],frame[0]);
+        absdiff(frame[1],frame[0],frame[2]);
     }
-    dst = frame[0];
+    dst = {frame[0],frame[1],frame[2]};
+    //dst = frame[0];
 }
 
 size_t get_duradion(VideoCapture src){

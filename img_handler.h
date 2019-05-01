@@ -39,6 +39,7 @@ void filter_pieces(Mat src_img, vector<Piece> src_vec, vector<Piece> &dst);
 void my_inv(Mat in);
 void my_grad(Mat src, Mat &dst);
 void find_bound_rects(Mat src, vector<Rect> &dst);
+void find_bound_rects_rgb(Mat src,vector<Rect> &b_rect); // find bound rect for color Mat
 void to_Piece(vector<Mat> pic, vector<Rect> rect, vector<Piece> &dst);
 
 void add_white_border(Mat src, Mat &dst, int border_size = 1);

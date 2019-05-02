@@ -5,7 +5,7 @@
 #define PIC_A "/home/dupeljan/Projects/webinar_analisator/web_analis_opencv/slides/a.png"
 #define PIC_B "/home/dupeljan/Projects/webinar_analisator/web_analis_opencv/slides/c.png"
 #define FRAME_EACH_MSECOND 50 * 10e3
-#define DEBUG_VIDEO 1
+#define DEBUG_VIDEO 0
 
 int video_main(){
     /*
@@ -20,7 +20,7 @@ int video_main(){
         return -1;
 
     Cursor cursor;
-    cursor.find_cursor(cap,15,1000);
+    cursor.find_cursor(cap,5,1000);
     imshow("cursor",cursor.get());
     waitKey(0);
     /*
@@ -124,9 +124,9 @@ void Cursor::find_cursor(VideoCapture cap, int hit_lim, int shift){
                 for ( size_t i = 0; i < chains.size(); i++)
                     if ( cmp(piece,chains[i].second) >= accuracy ){
                         if (visited.find(i) == visited.end()){
-                            //imshow("piece",piece);
-                            //imshow("chains[i].second",chains[i].second);
-                            //waitKey(0);
+                            imshow("piece",piece);
+                            imshow("chains[i].second",chains[i].second);
+                            waitKey(0);
                             chains[i].first++;
                             visited.insert(i);
                         }
@@ -150,11 +150,33 @@ void Cursor::find_cursor(VideoCapture cap, int hit_lim, int shift){
 double cmp(Mat x, Mat y){
     // if one piece area much more than another
     // then they different
-    const double area_diff = 2;
+    //const double area_diff = 2;
+    //auto area_x = x.cols * x.rows;
+    //auto area_y = y.cols * y.rows;
+    //if ( max(area_x,area_y) / (double) min(area_x,area_y) > area_diff )
+    const auto quotient_lim = 1.5;
+    auto quotient_cols = max(x.cols,y.cols) / (double) min(x.cols,y.cols);
+    auto quotient_rows = max(x.rows,y.rows) / (double) min(x.rows,y.rows);
+    if ( quotient_cols > quotient_lim || quotient_rows > quotient_lim )
+        return 0;
+
+    // if one piece is colorfull and another not
+    // then they different
+    const auto color_diff_lim = 10;
+    Mat x_gray,y_gray;
+    cvtColor(x,x_gray,COLOR_BGR2GRAY);
+    cvtColor(y,y_gray,COLOR_BGR2GRAY);
+    threshold(x_gray,x_gray,127,255,THRESH_BINARY);
+    threshold(y_gray,y_gray,127,255,THRESH_BINARY);
+
     auto area_x = x.cols * x.rows;
     auto area_y = y.cols * y.rows;
-    if ( max(area_x,area_y) / (double) min(area_x,area_y) > area_diff )
+    auto cz_x = max(area_x - countNonZero(x_gray),1);
+    auto cz_y = max(area_y - countNonZero(y_gray),1);
+
+    if ( max(cz_x,cz_y) / min(cz_x,cz_y) > color_diff_lim )
         return 0;
+
     // make x in y shape
     auto shape = cmp_shape(x,y);
     if ( shape != cmp_enum::equal){
@@ -180,9 +202,6 @@ double cmp(Mat x, Mat y){
                 break;
             }
         }
-
-
-
 
     } // now x in y
 
@@ -226,6 +245,16 @@ double cmp(Mat x, Mat y){
         case CV_64F: res = cmp_result.at<double>(0,0);break;
         default:     return 0;
     }
+#if DEBUG_VIDEO == 1
+    if ( 1 - res / 255. > 0.95 ){
+        imshow("mask",mask);
+        imshow("x",x);
+        imshow("x_gray",x_gray);
+        imshow("y",y);
+        imshow("y_gray",y_gray);
+        waitKey();
+    }
+#endif
     return 1 - res / 255.;
 
 }

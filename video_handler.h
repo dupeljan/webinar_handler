@@ -11,7 +11,7 @@
 
 #include "img_handler.h"
 
-#define MIN_CURSOR_AREA 300
+#define MIN_CURSOR_AREA 100//300
 
 using namespace cv;
 using namespace std;

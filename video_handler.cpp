@@ -1,7 +1,7 @@
 #include "video_handler.h"
 
 
-#define VIDEO_PATCH "/home/dupeljan/Projects/webinar_analisator/webinar.mp4"
+#define VIDEO_PATCH "/home/dupeljan/Projects/webinar_analisator/out.avi"
 #define PIC_A "/home/dupeljan/Projects/webinar_analisator/web_analis_opencv/slides/a.png"
 #define PIC_B "/home/dupeljan/Projects/webinar_analisator/web_analis_opencv/slides/c.png"
 #define FRAME_EACH_MSECOND 50 * 10e3
@@ -20,7 +20,8 @@ int video_main(){
         return -1;
 
     Cursor cursor;
-    cursor.find_cursor(cap,5,1000);
+    //cursor.find_cursor(cap,5,1000);
+    cursor.find_cursor(cap,5,30);
     imshow("cursor",cursor.get());
     waitKey(0);
     /*
@@ -72,13 +73,20 @@ void Cursor::find_bound_rects_diff(){
 void Cursor::threshold_diff(){
     cvtColor(diff.diff,diff.diff,COLOR_BGR2GRAY);
     threshold(diff.diff,diff.diff,127,255,THRESH_BINARY);
-    morphologyEx(diff.diff,diff.diff,MORPH_OPEN,getStructuringElement(MORPH_RECT,Size(5,5)));// нижняя граница
+    //morphologyEx(diff.diff,diff.diff,MORPH_OPEN,getStructuringElement(MORPH_RECT,Size(5,5)));
+    //imshow("diff",diff.diff);
+    //imshow("second",diff.second);
+    //waitKey();
 }
 
 void Cursor::filter_rects(){
-    Mat x = diff.diff;
+    Mat x;
+    cvtColor(diff.second,x,COLOR_BGR2GRAY);
+    threshold(x,x,127,255,THRESH_BINARY_INV);
     //cvtColor(diff.diff,x,COLOR_BGR2GRAY);
-    auto it = remove_if(b_rects.begin(), b_rects.end(),[x](Rect i){ return i.area() < MIN_CURSOR_AREA /*|| ! countNonZero(x)*/; } );
+    // in future: filter white pieces
+    auto it = remove_if(b_rects.begin(), b_rects.end(),[x](Rect i){
+         return i.area() < MIN_CURSOR_AREA || !countNonZero(x(i)); } );
     b_rects.erase(it, b_rects.end());
 }
 
@@ -124,9 +132,9 @@ void Cursor::find_cursor(VideoCapture cap, int hit_lim, int shift){
                 for ( size_t i = 0; i < chains.size(); i++)
                     if ( cmp(piece,chains[i].second) >= accuracy ){
                         if (visited.find(i) == visited.end()){
-                            imshow("piece",piece);
-                            imshow("chains[i].second",chains[i].second);
-                            waitKey(0);
+                            //imshow("piece",piece);
+                            //imshow("chains[i].second",chains[i].second);
+                            //waitKey(0);
                             chains[i].first++;
                             visited.insert(i);
                         }
@@ -142,6 +150,10 @@ void Cursor::find_cursor(VideoCapture cap, int hit_lim, int shift){
 
 
         this->img = max_element(chains.begin(),chains.end(),cmp_first)->second;
+#if DEBUG_VIDEO == 1
+        for(int i = 0; i < chains.size(); i++)
+            imshow(to_string(chains[i].first) + "_pic_" + to_string(i),chains[i].second);
+#endif
     }
 }
 

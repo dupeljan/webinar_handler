@@ -5,6 +5,7 @@
 #define PIC_A "/home/dupeljan/Projects/webinar_analisator/web_analis_opencv/slides/6.png"
 #define PIC_B "/home/dupeljan/Projects/webinar_analisator/web_analis_opencv/slides/c.png"
 #define CURSOR "/home/dupeljan/Projects/webinar_analisator/web_analis_opencv/cursor1.png"
+#define SLIDE_PATH "/home/dupeljan/Projects/webinar_analisator/web_analis_opencv/gen_slides_shorter/"
 #define FRAME_EACH_MSECOND 50 * 10e3
 #define DEBUG_VIDEO 0
 
@@ -26,9 +27,17 @@ int video_main(){
 //    imshow("cursor",cursor.get());
 //    imwrite(CURSOR,cursor.get());
 //    waitKey(0);
+
+    //cap.set(CAP_PROP_POS_FRAMES,178000);
+
     Mat cursor = imread(CURSOR);
-    Presentation presentation(cursor);
-    presentation.generate(cap,Rect(),1);
+    Presentation presentation(cursor,Rect(460,230,810,600));
+    presentation.generate(cap,2000);
+    presentation.write_slides(SLIDE_PATH);
+//    Diff_dict diff;
+//    shift_video_get_difference(cap,100,diff);
+//    show_rects(diff.first,{Rect(460,230,810,600)},"img");
+//    waitKey();
     /*
 
     size_t time = 300000;
@@ -162,10 +171,20 @@ void Cursor::find_cursor(VideoCapture cap, int hit_lim, int shift){
 // end Cursor
 
 // Presentation
-Presentation::Presentation(Mat cursor){
+Presentation::Presentation(Mat cursor, Rect area){
     this->cursor = cursor;
+    this->area = area;
     thresh_otsu(cursor,cursor_mask);
+
+    //cursor_covering_mask = Mat::zeros(cursor_mask.rows,cursor_mask.cols,cursor_mask.type());
+    //cursor_covering_mask = Scalar(255,255,255);
+
+    //dilate(cursor_mask,cursor_covering_mask,getStructuringElement(MORPH_RECT,Size(5,5)));
+
+    cursor_covering_mask = cursor_mask.clone();
+
     cvtColor(cursor_mask,cursor_mask,COLOR_GRAY2BGR);
+    cvtColor(cursor_covering_mask,cursor_covering_mask,COLOR_GRAY2BGR);
 }
 
 void Presentation::get_cursor_mask(Mat src, Mat &dst){
@@ -182,22 +201,130 @@ void Presentation::get_cursor_mask(Mat src, Mat &dst){
     if ( cmp( cursor,src(Rect(matchLoc.x,matchLoc.y, cursor_mask.cols, cursor_mask.rows)) )
                                                                                > accuracy ){
         // Insert cursor mask into cursor coords
+        // might improve here
         Mat insetImage(dst, Rect(matchLoc.x,matchLoc.y, cursor_mask.cols, cursor_mask.rows ));
-        cursor_mask.copyTo(insetImage);
+        cursor_covering_mask.copyTo(insetImage);
+    }
+    cvtColor(dst,dst,COLOR_BGR2GRAY);
+    threshold(dst,dst,127,255,THRESH_BINARY);
+}
+
+void Presentation::shift_video_get_difference_local(VideoCapture cap, int shift, Diff_dict &dst){
+    shift_video_get_difference(cap,shift,dst);
+    if (!dst.diff.empty()){
+        dst(area);
+        cvtColor(dst.diff,dst.diff,COLOR_BGR2GRAY);
+        morphologyEx(dst.diff,dst.diff,MORPH_OPEN,getStructuringElement(MORPH_RECT,Size(3,3)));
+        threshold(dst.diff,dst.diff,127,255,THRESH_BINARY);
     }
 }
 
-void Presentation::generate(VideoCapture cap,Rect area,int shift){
-    //Diff_dict diff;
-    //shift_video_get_difference(src,shift,diff);
-    Mat img = imread(PIC_A);
-    Mat mask;
-    get_cursor_mask(img,mask);
-    imshow("mask",mask);
-    imshow("src",img);
-    waitKey();
+void Presentation::generate(VideoCapture cap,int shift){
+    Diff_dict diff;
+    Mat cursor_mask_gray;
+    cvtColor(cursor_mask,cursor_mask_gray,COLOR_BGR2GRAY);
+    auto cursor_area = countNonZero(cursor_mask_gray);
+    do{
+       shift_video_get_difference_local(cap,shift,diff);
+
+       Mat slide = diff.first.clone();
+       Mat mask;
+       get_cursor_mask(diff.first,mask);
+
+#if DEBUG_VIDEO == 2
+       imshow("init slide",slide);
+       waitKey();
+       imshow("mask",mask);
+       waitKey();
+       imshow("diff",diff.diff);
+       waitKey();
+#endif
+
+       while( countNonZero(mask) &&
+              countNonZero(diff.diff) < 3 * cursor_area &&
+              !diff.diff.empty()){
+
+            Mat local_mask;
+            get_cursor_mask(diff.second,local_mask);
+
+#if DEBUG_VIDEO == 2
+            imshow("local mask",local_mask);
+            waitKey();
+#endif
+
+
+            // Compute fill_mask = mask 'minus' ( mask 'union' local_mask)
+            Mat alpha;
+            Mat not_lm;
+            bitwise_not(local_mask,not_lm);
+            bitwise_and(mask,not_lm,alpha);
+
+#if DEBUG_VIDEO == 2
+            imshow("fill mask",alpha);
+            waitKey();
+#endif
+
+            // Compute new mask
+            bitwise_and(mask,local_mask,mask);
+
+#if DEBUG_VIDEO == 2
+            imshow("new mask",mask);
+            waitKey();
+#endif
+
+            // Blend pieces
+//            slide.convertTo(slide,CV_32FC3);
+//            diff.second.convertTo(diff.second,CV_32FC3);
+//            alpha.convertTo(alpha, CV_32FC3, 1.0/255);
+//            Mat result = Mat::zeros(slide.size(), slide.type());
+            // Multiply the foreground with the alpha matte
+            //multiply(alpha, diff.second, diff.second);
+
+            // Multiply the background with ( 1 - alpha )
+            //multiply(Scalar::all(1.0)-alpha, slide, slide);
+
+            // Add the masked foreground and background.
+            //add(slide, diff.second, result);
+//            imshow("diff.second",diff.second);
+//            imshow("slide",slide);
+//            imshow("alpha",alpha);
+//            waitKey();
+//            alpha_blend(diff.second,slide,alpha,result);
+//            slide = result / 255;
+            blend_with_mask(slide,diff.second,alpha,slide);
+
+#if DEBUG_VIDEO == 2
+            imshow("new slide",slide);
+            waitKey();
+#endif
+
+            shift_video_get_difference_local(cap,shift,diff);
+       }
+
+#if DEBUG_VIDEO == 2
+            imshow("diff",diff.diff);
+            waitKey();
+#endif
+       // Wait for new slide
+       while( countNonZero(diff.diff) < 3 * cursor_area &&
+            !diff.diff.empty()){
+               shift_video_get_difference_local(cap,shift,diff);
+       }
+
+#if DEBUG_VIDEO == 2
+            imshow("diff",diff.diff);
+            waitKey();        
+            imshow("final slide",slide);
+            waitKey();
+#endif
+       slides.push_back(slide);
+    }while(!diff.diff.empty());
 }
 
+void Presentation::write_slides(string patch){
+    for(size_t i = 0; i < slides.size(); i++)
+        imwrite(patch + "slide_" + to_string(i) + ".png",slides[i]);
+}
 // end Presentation
 
 double cmp(Mat x, Mat y){

@@ -619,6 +619,28 @@ void to_Piece(vector<Mat> pic, vector<Rect> rect, vector<Piece> &dst){
         dst.push_back({pic[i],rect[i]});
 }
 
+void blend_with_mask(Mat &base, Mat &src, Mat &mask, Mat &out){
+    char ch = base.channels();
+    double alpha = 0;
+    for( int y = 0; y < base.rows; y++ ){
+        uchar* pBS = base.ptr<uchar>(y);
+        uchar* pSR = src.ptr<uchar>(y);
+        uchar* pMK = mask.ptr<uchar>(y);
+        uchar* pOU = out.ptr<uchar>(y);
+        for( int x = 0; x < base.cols*ch; x++ ){
+            int ix = x / ch;
+            if(pMK[ix] == 0){
+                pOU[x] = pBS[x];
+            } else if(pMK[ix] == 255){
+                pOU[x] = pSR[x];
+            } else {
+                alpha = pMK[ix] / 255.0;
+                pOU[x] = pSR[x] * alpha + pBS[x] * (1-alpha);
+            }
+        }
+    }
+}
+
 void show_rects(Mat src, vector<Rect> rects,string title){
     RNG rng(12345);
 
@@ -628,5 +650,10 @@ void show_rects(Mat src, vector<Rect> rects,string title){
         rectangle(src,x,color);
     }
     imshow(title,src);
+}
+
+int countNonZero_rgb(Mat src){
+    cvtColor(src,src,COLOR_BGR2GRAY);
+    return countNonZero(src);
 }
 

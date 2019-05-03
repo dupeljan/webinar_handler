@@ -52,11 +52,18 @@ public:
 class Presentation {
     Mat cursor;
     Mat cursor_mask;
+    Mat cursor_covering_mask; // For error reduction
+    Rect area;
     vector<Mat> slides;
+
     void get_cursor_mask(Mat src, Mat& dst);
+    void shift_video_get_difference_local(VideoCapture cap, int shift, Diff_dict &dst);
 public:
-    Presentation(Mat cursor);
-    void generate(VideoCapture cap,Rect area, int shift);
+    Presentation(Mat cursor,Rect area);
+    void generate(VideoCapture cap, int shift);
+    void write_slides(string patch);
+    vector<Mat> get_slides(){ return slides; }
+
 };
 
 int video_main();

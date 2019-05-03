@@ -41,6 +41,7 @@ void my_grad(Mat src, Mat &dst);
 void find_bound_rects(Mat src, vector<Rect> &dst);
 void find_bound_rects_rgb(Mat src,vector<Rect> &b_rect); // find bound rect for color Mat
 void to_Piece(vector<Mat> pic, vector<Rect> rect, vector<Piece> &dst);
+void blend_with_mask(Mat &base, Mat &src, Mat &mask, Mat &out);
 
 void add_white_border(Mat src, Mat &dst, int border_size = 1);
 //void insert(Mat src, Mat inset, Point coord);
@@ -54,6 +55,7 @@ bool piece_is_word(Mat dst, int threshold = 1);
 bool is_white(Mat src);
 int expected_value(vector<int> row);
 int median(vector<int> row);
+int countNonZero_rgb(Mat src);
 
 
 #endif // IMG_HANDLER_H

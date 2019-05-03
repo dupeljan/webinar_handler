@@ -1,9 +1,10 @@
 #include "video_handler.h"
 
 
-#define VIDEO_PATCH "/home/dupeljan/Projects/webinar_analisator/out.avi"
-#define PIC_A "/home/dupeljan/Projects/webinar_analisator/web_analis_opencv/slides/a.png"
+#define VIDEO_PATCH "/home/dupeljan/Projects/webinar_analisator/webinar.mp4"
+#define PIC_A "/home/dupeljan/Projects/webinar_analisator/web_analis_opencv/slides/6.png"
 #define PIC_B "/home/dupeljan/Projects/webinar_analisator/web_analis_opencv/slides/c.png"
+#define CURSOR "/home/dupeljan/Projects/webinar_analisator/web_analis_opencv/cursor1.png"
 #define FRAME_EACH_MSECOND 50 * 10e3
 #define DEBUG_VIDEO 0
 
@@ -19,11 +20,15 @@ int video_main(){
     if(!cap.isOpened())  // check if we succeeded
         return -1;
 
-    Cursor cursor;
-    //cursor.find_cursor(cap,5,1000);
-    cursor.find_cursor(cap,5,30);
-    imshow("cursor",cursor.get());
-    waitKey(0);
+//    Cursor cursor;
+//    cursor.find_cursor(cap,5,1000);
+//    //cursor.find_cursor(cap,5,30);
+//    imshow("cursor",cursor.get());
+//    imwrite(CURSOR,cursor.get());
+//    waitKey(0);
+    Mat cursor = imread(CURSOR);
+    Presentation presentation(cursor);
+    presentation.generate(cap,Rect(),1);
     /*
 
     size_t time = 300000;
@@ -73,10 +78,8 @@ void Cursor::find_bound_rects_diff(){
 void Cursor::threshold_diff(){
     cvtColor(diff.diff,diff.diff,COLOR_BGR2GRAY);
     threshold(diff.diff,diff.diff,127,255,THRESH_BINARY);
-    //morphologyEx(diff.diff,diff.diff,MORPH_OPEN,getStructuringElement(MORPH_RECT,Size(5,5)));
-    //imshow("diff",diff.diff);
-    //imshow("second",diff.second);
-    //waitKey();
+    // 3,3 better than 5,5
+    morphologyEx(diff.diff,diff.diff,MORPH_OPEN,getStructuringElement(MORPH_RECT,Size(3,3)));
 }
 
 void Cursor::filter_rects(){
@@ -84,9 +87,8 @@ void Cursor::filter_rects(){
     cvtColor(diff.second,x,COLOR_BGR2GRAY);
     threshold(x,x,127,255,THRESH_BINARY_INV);
     //cvtColor(diff.diff,x,COLOR_BGR2GRAY);
-    // in future: filter white pieces
     auto it = remove_if(b_rects.begin(), b_rects.end(),[x](Rect i){
-         return i.area() < MIN_CURSOR_AREA || !countNonZero(x(i)); } );
+         return i.area() < MIN_CURSOR_AREA || !countNonZero(x(i))/*piece is white*/; } );
     b_rects.erase(it, b_rects.end());
 }
 
@@ -159,6 +161,45 @@ void Cursor::find_cursor(VideoCapture cap, int hit_lim, int shift){
 
 // end Cursor
 
+// Presentation
+Presentation::Presentation(Mat cursor){
+    this->cursor = cursor;
+    thresh_otsu(cursor,cursor_mask);
+    cvtColor(cursor_mask,cursor_mask,COLOR_GRAY2BGR);
+}
+
+void Presentation::get_cursor_mask(Mat src, Mat &dst){
+    // Find out cursor's coords
+    Point matchLoc;
+    matchTemplateCoords(src,cursor,cursor_mask,matchLoc);
+
+    // Create black mask
+    dst = Mat::zeros(src.rows,src.cols,src.type());
+    dst = Scalar(0,0,0);
+
+    const auto accuracy = 0.9;
+    //auto tmp = cmp( cursor,src(Rect(matchLoc.x,matchLoc.y, cursor_mask.cols, cursor_mask.rows))) ;
+    if ( cmp( cursor,src(Rect(matchLoc.x,matchLoc.y, cursor_mask.cols, cursor_mask.rows)) )
+                                                                               > accuracy ){
+        // Insert cursor mask into cursor coords
+        Mat insetImage(dst, Rect(matchLoc.x,matchLoc.y, cursor_mask.cols, cursor_mask.rows ));
+        cursor_mask.copyTo(insetImage);
+    }
+}
+
+void Presentation::generate(VideoCapture cap,Rect area,int shift){
+    //Diff_dict diff;
+    //shift_video_get_difference(src,shift,diff);
+    Mat img = imread(PIC_A);
+    Mat mask;
+    get_cursor_mask(img,mask);
+    imshow("mask",mask);
+    imshow("src",img);
+    waitKey();
+}
+
+// end Presentation
+
 double cmp(Mat x, Mat y){
     // if one piece area much more than another
     // then they different
@@ -218,26 +259,14 @@ double cmp(Mat x, Mat y){
     } // now x in y
 
     // Find out mathes locatoin
-    Mat map;
-    auto match_method = TM_CCORR_NORMED;
     Mat mask;
     thresh_otsu(x,mask);
     cvtColor(mask,mask,COLOR_GRAY2BGR);
 #if DEBUG_VIDEO == 1
     //imshow("mask",mask);
 #endif
-    matchTemplate(y,x,map,match_method,mask);
-    normalize( map, map, 0, 1, NORM_MINMAX, -1, Mat() );
-
-    double minVal; double maxVal; Point minLoc; Point maxLoc;
     Point matchLoc;
-    minMaxLoc( map, &minVal, &maxVal, &minLoc, &maxLoc, Mat() );
-
-    //imshow("map",map);
-    if( match_method  == TM_SQDIFF || match_method == TM_SQDIFF_NORMED )
-        { matchLoc = minLoc; }
-    else
-        { matchLoc = maxLoc; }
+    matchTemplateCoords(y,x,mask,matchLoc);
 
     //rectangle(y,Rect(matchLoc.x,matchLoc.y,x.rows,x.cols),Scalar(255,255,0),1);
     //imshow("find piece here",y);
@@ -281,6 +310,20 @@ cmp_enum cmp_shape(Mat x, Mat y){
     return cmp_enum::cross;
 }
 
+void matchTemplateCoords(Mat img, Mat templ,Mat mask,Point& matchLoc){
+    auto match_method = TM_CCORR_NORMED;
+    Mat map;
+    matchTemplate(img,templ,map,match_method,mask);
+    normalize( map, map, 0, 1, NORM_MINMAX, -1, Mat() );
+
+    double minVal; double maxVal; Point minLoc; Point maxLoc;
+    minMaxLoc( map, &minVal, &maxVal, &minLoc, &maxLoc, Mat() );
+
+    if( match_method  == TM_SQDIFF || match_method == TM_SQDIFF_NORMED )
+        { matchLoc = minLoc; }
+    else
+        { matchLoc = maxLoc; }
+}
 void shift_video_get_difference(VideoCapture src, int shift, Diff_dict &dst){
     Mat frame[3];
     src >> frame[0];

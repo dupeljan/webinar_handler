@@ -11,7 +11,7 @@
 
 #include "img_handler.h"
 
-#define MIN_CURSOR_AREA 100//300
+#define MIN_CURSOR_AREA 250//300
 
 using namespace cv;
 using namespace std;
@@ -27,6 +27,11 @@ struct Diff_dict{
     Mat first;
     Mat second;
     Mat diff;
+    void operator ()(Rect rect){
+        first  = first(rect);
+        second = second(rect);
+        diff   = diff(rect);
+    }
 };
 
 class Cursor {
@@ -44,6 +49,16 @@ public:
 
 };
 
+class Presentation {
+    Mat cursor;
+    Mat cursor_mask;
+    vector<Mat> slides;
+    void get_cursor_mask(Mat src, Mat& dst);
+public:
+    Presentation(Mat cursor);
+    void generate(VideoCapture cap,Rect area, int shift);
+};
+
 int video_main();
 size_t get_duradion(VideoCapture src);
 VideoWriter get_VideoWriter(VideoCapture cap);
@@ -54,6 +69,8 @@ cmp_enum cmp_shape(Mat x, Mat y);
 // Return abs_diff form current time + shift img and current time img
 // Change VideoCapture posintion
 void shift_video_get_difference(VideoCapture src, int shift, Diff_dict &dst);
+void matchTemplateCoords(Mat img, Mat templ,Mat mask,Point& matchLoc);
+
 
 
 #endif // VIDEO_HANDLER_H

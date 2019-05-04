@@ -86,14 +86,25 @@ void Slide_proc::proccess(Mat image){
     vector<Piece> filtered_pieces;
     to_Piece(pieces,boundRect,filtered_pieces);
     filter_pieces(image,filtered_pieces,filtered_pieces);
+
+#if SLIDE_PROC_DEBUG == 1
+    {
+    vector<Rect> _;
+    for(auto &x : filtered_pieces)
+        _.push_back(x.coord);
+    show_rects(image,_,"filtered contours");
+    waitKey();
+    }
+#endif
+
     drop_non_text(filtered_pieces,filtered_pieces);
 
 #if SLIDE_PROC_DEBUG == 1
     {
-    vector<Rect> filtered_contours;
+    vector<Rect> _;
     for(auto &x : filtered_pieces)
-        filtered_contours.push_back(x.coord);
-    show_rects(image,filtered_contours,"filtered contours");
+        _.push_back(x.coord);
+    show_rects(image,_,"contours after dnt");
     waitKey();
     }
 #endif

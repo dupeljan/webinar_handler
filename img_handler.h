@@ -7,6 +7,7 @@
 
 #define BOTTOM_STICK_LENGTH 7 //11
 #define UPPER_SICK_LENGTH 25 //25
+#define MIN_TEXT_BLOCK_AREA 50
 
 using namespace std;
 using namespace cv;
@@ -31,7 +32,7 @@ void cut_text_line(Mat in,vector<Mat>& out,int threshold= 1);
 void cut_words(Mat in,vector<vector<Mat>>& out,int threshold= 10);
 void drop_non_text(Piece src, Piece &dst);
 void drop_non_text(vector<Piece> src,vector<Piece> &dst);
-void filter_pieces(Mat src_img, vector<Piece> src_vec, vector<Piece> &dst);
+void filter_pieces(Mat src_img, vector<Piece> src_vec, vector<Piece> &dst,int min_area = 100);
 
 void my_inv(Mat in);
 void my_grad(Mat src, Mat &dst);

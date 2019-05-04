@@ -368,10 +368,32 @@ void my_inv(Mat in){
     threshold(in,in,127,255,THRESH_BINARY_INV);
 }
 
-void filter_pieces(Mat src_img, vector<Piece> src_vec, vector<Piece> &dst){
+void filter_pieces(Mat src_img, vector<Piece> src_vec, vector<Piece> &dst,int min_area /*=100*/){
     Rect image_shape = Rect(0,0,src_img.cols,src_img.rows);
-    auto it = remove_copy_if(src_vec.begin(),src_vec.end(),dst.begin(),[image_shape](Piece i){ return i.coord == image_shape;});
-    dst.erase(it,dst.end());
+    vector<Piece> tmp = dst;
+    auto it = remove_copy_if(src_vec.begin(),src_vec.end(),tmp.begin(),[image_shape,min_area](Piece i){
+            return i.coord == image_shape || i.pic.cols * i.pic.rows < min_area;
+    });
+    tmp.erase(it,tmp.end());
+
+    // Drop nested contours
+    function<bool(Rect,Rect)> in = [](Rect a, Rect b){
+        return a.x >= b.x && a.y >= b.y &&
+               a.x + a.width <= b.x + b.width &&
+               a.y + a.height <= b.y + b.height;
+    };
+
+    dst.clear();
+    for (auto i = 0; i < tmp.size(); i++ ){
+        bool drop = false;
+        for (auto j = 0; j < tmp.size() && !drop; j++)
+            if ( i != j )
+                drop = in(tmp[i].coord,tmp[j].coord);
+
+        if ( !drop )
+            dst.push_back(tmp[i]);
+    }
+
 }
 
 void add_white_border(Mat src,Mat& dst,int border_size /*= 1*/){

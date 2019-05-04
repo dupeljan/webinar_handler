@@ -1,19 +1,9 @@
 #ifndef IMG_HANDLER_H
 #define IMG_HANDLER_H
 
-#include <opencv2/core/core.hpp>
-#include <opencv2/core.hpp>
-#include <opencv2/imgcodecs.hpp>
-#include <opencv2/highgui/highgui.hpp>
-#include <opencv2/highgui.hpp>
-#include <opencv2/imgproc.hpp>
+#include "all_headers.h"
 
-#include <iostream>
-#include <algorithm>
-#include <set>
-#include <string>
-#include <math.h>
-#include <numeric>
+#define IMG_HANDLER_DEBUG 0
 
 #define BOTTOM_STICK_LENGTH 7 //11
 #define UPPER_SICK_LENGTH 25 //25
@@ -24,6 +14,13 @@ using namespace cv;
 struct Piece{
     Mat pic;
     Rect coord;
+};
+
+enum cmp_enum{
+    less,
+    equal,
+    large,
+    cross,
 };
 
 void vertical_hist(Mat src, Mat& dst,int cols = 250);
@@ -42,6 +39,7 @@ void find_bound_rects(Mat src, vector<Rect> &dst);
 void find_bound_rects_rgb(Mat src,vector<Rect> &b_rect); // find bound rect for color Mat
 void to_Piece(vector<Mat> pic, vector<Rect> rect, vector<Piece> &dst);
 void blend_with_mask(Mat &base, Mat &src, Mat &mask, Mat &out);
+void matchTemplateCoords(Mat img, Mat templ,Mat mask,Point& matchLoc);
 
 void add_white_border(Mat src, Mat &dst, int border_size = 1);
 //void insert(Mat src, Mat inset, Point coord);
@@ -53,9 +51,13 @@ void my_find_contours(Mat src, vector<Rect> &b_rect, int border = 10);
 bool same_shape(Mat a, Rect b);
 bool piece_is_word(Mat dst, int threshold = 1);
 bool is_white(Mat src);
-int expected_value(vector<int> row);
-int median(vector<int> row);
+template<typename T>
+int expected_value(vector<T> row);
+template<typename T>
+int median(vector<T> row);
 int countNonZero_rgb(Mat src);
+double cmp(Mat x, Mat y); // 1 - equal, 0 - different
+cmp_enum cmp_shape(Mat x, Mat y);
 
 
 #endif // IMG_HANDLER_H

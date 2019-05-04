@@ -21,19 +21,19 @@ int video_main(){
     if(!cap.isOpened())  // check if we succeeded
         return -1;
 
-//    Cursor cursor;
-//    cursor.find_cursor(cap,5,1000);
-//    //cursor.find_cursor(cap,5,30);
-//    imshow("cursor",cursor.get());
-//    imwrite(CURSOR,cursor.get());
-//    waitKey(0);
+    Cursor cursor;
+    cursor.find_cursor(cap,5,1000);
+    //cursor.find_cursor(cap,5,30);
+    imshow("cursor",cursor.get());
+    //imwrite(CURSOR,cursor.get());
+    waitKey(0);
 
     //cap.set(CAP_PROP_POS_FRAMES,178000);
 
-    Mat cursor = imread(CURSOR);
-    Presentation presentation(cursor,Rect(460,230,810,600));
-    presentation.generate(cap,2000);
-    presentation.write_slides(SLIDE_PATH);
+//    Mat cursor = imread(CURSOR);
+//    Presentation presentation(cursor,Rect(460,230,810,600));
+//    presentation.generate(cap,2000);
+//    presentation.write_slides(SLIDE_PATH);
 //    Diff_dict diff;
 //    shift_video_get_difference(cap,100,diff);
 //    show_rects(diff.first,{Rect(460,230,810,600)},"img");
@@ -327,130 +327,7 @@ void Presentation::write_slides(string patch){
 }
 // end Presentation
 
-double cmp(Mat x, Mat y){
-    // if one piece area much more than another
-    // then they different
-    //const double area_diff = 2;
-    //auto area_x = x.cols * x.rows;
-    //auto area_y = y.cols * y.rows;
-    //if ( max(area_x,area_y) / (double) min(area_x,area_y) > area_diff )
-    const auto quotient_lim = 1.5;
-    auto quotient_cols = max(x.cols,y.cols) / (double) min(x.cols,y.cols);
-    auto quotient_rows = max(x.rows,y.rows) / (double) min(x.rows,y.rows);
-    if ( quotient_cols > quotient_lim || quotient_rows > quotient_lim )
-        return 0;
 
-    // if one piece is colorfull and another not
-    // then they different
-    const auto color_diff_lim = 10;
-    Mat x_gray,y_gray;
-    cvtColor(x,x_gray,COLOR_BGR2GRAY);
-    cvtColor(y,y_gray,COLOR_BGR2GRAY);
-    threshold(x_gray,x_gray,127,255,THRESH_BINARY);
-    threshold(y_gray,y_gray,127,255,THRESH_BINARY);
-
-    auto area_x = x.cols * x.rows;
-    auto area_y = y.cols * y.rows;
-    auto cz_x = max(area_x - countNonZero(x_gray),1);
-    auto cz_y = max(area_y - countNonZero(y_gray),1);
-
-    if ( max(cz_x,cz_y) / min(cz_x,cz_y) > color_diff_lim )
-        return 0;
-
-    // make x in y shape
-    auto shape = cmp_shape(x,y);
-    if ( shape != cmp_enum::equal){
-        switch (shape) {
-        case cmp_enum::large:{
-                // swap x and y
-                Mat tmp = x.clone();
-                x = y.clone();
-                y = tmp.clone();
-                break;
-            }
-        case cmp_enum::cross:{
-                // Expand y
-                auto height =  x.cols + y.cols;
-                auto weight =  x.rows + y.rows;
-                Mat expand_y = Mat::zeros(weight,height,x.type());
-                expand_y = Scalar(255,255,255);
-
-                Mat insetImage;
-                insetImage = Mat(expand_y , Rect(0,0, y.cols, y.rows ));
-                y.copyTo(insetImage);
-                y = expand_y.clone();
-                break;
-            }
-        }
-
-    } // now x in y
-
-    // Find out mathes locatoin
-    Mat mask;
-    thresh_otsu(x,mask);
-    cvtColor(mask,mask,COLOR_GRAY2BGR);
-#if DEBUG_VIDEO == 1
-    //imshow("mask",mask);
-#endif
-    Point matchLoc;
-    matchTemplateCoords(y,x,mask,matchLoc);
-
-    //rectangle(y,Rect(matchLoc.x,matchLoc.y,x.rows,x.cols),Scalar(255,255,0),1);
-    //imshow("find piece here",y);
-
-    // compare pieces
-    Mat cmp_result;
-    matchTemplate(x,y(Rect(matchLoc.x,matchLoc.y,x.cols,x.rows)),cmp_result,TM_SQDIFF,mask);
-    //cout << endl << cmp_result.type() << endl;
-    double res;
-    switch (cmp_result.type()) {
-        case CV_8U:  res = cmp_result.at<uchar> (0,0);break;
-        case CV_8S:  res = cmp_result.at<schar> (0,0);break;
-        case CV_16U: res = cmp_result.at<ushort>(0,0);break;
-        case CV_16S: res = cmp_result.at<short> (0,0);break;
-        case CV_32S: res = cmp_result.at<int>   (0,0);break;
-        case CV_32F: res = cmp_result.at<float> (0,0);break;
-        case CV_64F: res = cmp_result.at<double>(0,0);break;
-        default:     return 0;
-    }
-#if DEBUG_VIDEO == 1
-    if ( 1 - res / 255. > 0.95 ){
-        imshow("mask",mask);
-        imshow("x",x);
-        imshow("x_gray",x_gray);
-        imshow("y",y);
-        imshow("y_gray",y_gray);
-        waitKey();
-    }
-#endif
-    return 1 - res / 255.;
-
-}
-
-cmp_enum cmp_shape(Mat x, Mat y){
-    if ( x.cols  < y.cols && x.rows  < y.rows )
-        return cmp_enum::less;
-    if(  x.cols == y.cols && x.rows == y.rows )
-        return cmp_enum::equal;
-    if( x.cols  > y.cols && x.rows  > y.rows )
-        return cmp_enum::large;
-    return cmp_enum::cross;
-}
-
-void matchTemplateCoords(Mat img, Mat templ,Mat mask,Point& matchLoc){
-    auto match_method = TM_CCORR_NORMED;
-    Mat map;
-    matchTemplate(img,templ,map,match_method,mask);
-    normalize( map, map, 0, 1, NORM_MINMAX, -1, Mat() );
-
-    double minVal; double maxVal; Point minLoc; Point maxLoc;
-    minMaxLoc( map, &minVal, &maxVal, &minLoc, &maxLoc, Mat() );
-
-    if( match_method  == TM_SQDIFF || match_method == TM_SQDIFF_NORMED )
-        { matchLoc = minLoc; }
-    else
-        { matchLoc = maxLoc; }
-}
 void shift_video_get_difference(VideoCapture src, int shift, Diff_dict &dst){
     Mat frame[3];
     src >> frame[0];

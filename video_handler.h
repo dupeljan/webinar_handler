@@ -6,6 +6,13 @@
 #include "img_handler.h"
 
 #define MIN_CURSOR_AREA 250//300
+#define VIDEO_PATCH "/home/dupeljan/Projects/webinar_analisator/webinar.mp4"
+#define PIC_A "/home/dupeljan/Projects/webinar_analisator/web_analis_opencv/slides/6.png"
+#define PIC_B "/home/dupeljan/Projects/webinar_analisator/web_analis_opencv/slides/c.png"
+#define CURSOR "/home/dupeljan/Projects/webinar_analisator/web_analis_opencv/cursor1.png"
+#define SLIDE_PATH "/home/dupeljan/Projects/webinar_analisator/web_analis_opencv/gen_slides_shorter/"
+#define FRAME_EACH_MSECOND 50 * 10e3
+#define DEBUG_VIDEO 0
 
 using namespace cv;
 using namespace std;

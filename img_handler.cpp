@@ -584,6 +584,7 @@ double cmp(Mat x, Mat y){
 void matchTemplateCoords(Mat img, Mat templ,Mat mask,Point& matchLoc){
     auto match_method = TM_CCORR_NORMED;
     Mat map;
+
     matchTemplate(img,templ,map,match_method,mask);
     normalize( map, map, 0, 1, NORM_MINMAX, -1, Mat() );
 

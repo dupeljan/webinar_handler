@@ -10,6 +10,7 @@ void Slide_proc::proccess(Mat image){
 
 #if SLIDE_PROC_DEBUG == 1
     imshow("got img",image);
+    imwrite("/home/dupeljan/Documents/courcework_2019/Latex/pictures/solution/got_img.png",image);
     waitKey();
 #endif
 
@@ -37,6 +38,7 @@ void Slide_proc::proccess(Mat image){
 
 #if SLIDE_PROC_DEBUG == 1
     imshow("after filter",left_border);
+    imwrite("/home/dupeljan/Documents/courcework_2019/Latex/pictures/solution/left_border.png",left_border);
     waitKey();
 #endif
 
@@ -49,13 +51,18 @@ void Slide_proc::proccess(Mat image){
     Mat result;
     addWeighted(left_border,1,mask,1,0,result);//Соединияем
     morphologyEx(result,result,MORPH_CLOSE,getStructuringElement(MORPH_RECT,Size(1,BOTTOM_STICK_LENGTH)));// нижняя граница
+
+#if SLIDE_PROC_DEBUG == 1
     imshow("intermediate result",result);
+    imwrite("/home/dupeljan/Documents/courcework_2019/Latex/pictures/solution/intermediate_result.png",result);
+#endif
 
     morphologyEx(result,result,MORPH_OPEN,getStructuringElement(MORPH_RECT,Size(UPPER_SICK_LENGTH * 25/20,2)),Point(-1,-1),3);//добавим
     morphologyEx(result,result,MORPH_CLOSE,getStructuringElement(MORPH_RECT,Size(5,BOTTOM_STICK_LENGTH)));
 
 #if SLIDE_PROC_DEBUG == 1
     imshow("after morphology",result);
+    imwrite("/home/dupeljan/Documents/courcework_2019/Latex/pictures/solution/after_morphology.png",result);
     waitKey();
 #endif
 
@@ -79,6 +86,7 @@ void Slide_proc::proccess(Mat image){
 
 #if SLIDE_PROC_DEBUG == 1
     imshow("founded contours",countoured_image);
+    imwrite("/home/dupeljan/Documents/courcework_2019/Latex/pictures/solution/founded_contours.png",countoured_image);
     waitKey();
 #endif
 
@@ -94,12 +102,20 @@ void Slide_proc::proccess(Mat image){
         _.push_back(x.coord);
     show_rects(image,_,"filtered contours");
     waitKey();
+    RNG rng(12345);
+    Mat tmp = image.clone();
+    for( auto &x : _){
+        Scalar color = Scalar( rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
+        //drawContours( image, contours, (int)i, color);
+        rectangle(tmp,x,color);
+    }
+    imwrite("/home/dupeljan/Documents/courcework_2019/Latex/pictures/solution/filtered_contours.png",tmp);
     }
 #endif
 
-    drop_non_text(filtered_pieces,filtered_pieces);
+    //drop_non_text(filtered_pieces,filtered_pieces);
 
-#if SLIDE_PROC_DEBUG == 1
+#if SLIDE_PROC_DEBUG == 2
     {
     vector<Rect> _;
     for(auto &x : filtered_pieces)
@@ -124,6 +140,7 @@ void Slide_proc::proccess(Mat image){
         text_blocks.push_back({piece.coord,string(ocr->GetUTF8Text())});
 #if SLIDE_PROC_DEBUG == 1
         imshow(text_blocks.back().text,piece.pic);
+        cout <<endl<< text_blocks.back().text << endl;
 #endif
     }
 

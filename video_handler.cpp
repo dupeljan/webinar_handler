@@ -1,13 +1,7 @@
 #include "video_handler.h"
 
 
-#define VIDEO_PATCH "/home/dupeljan/Projects/webinar_analisator/webinar.mp4"
-#define PIC_A "/home/dupeljan/Projects/webinar_analisator/web_analis_opencv/slides/6.png"
-#define PIC_B "/home/dupeljan/Projects/webinar_analisator/web_analis_opencv/slides/c.png"
-#define CURSOR "/home/dupeljan/Projects/webinar_analisator/web_analis_opencv/cursor1.png"
-#define SLIDE_PATH "/home/dupeljan/Projects/webinar_analisator/web_analis_opencv/gen_slides_shorter/"
-#define FRAME_EACH_MSECOND 50 * 10e3
-#define DEBUG_VIDEO 0
+
 
 int video_main(){
     /*
@@ -21,23 +15,23 @@ int video_main(){
     if(!cap.isOpened())  // check if we succeeded
         return -1;
 
-    Cursor cursor;
-    cursor.find_cursor(cap,5,1000);
-    //cursor.find_cursor(cap,5,30);
-    imshow("cursor",cursor.get());
-    //imwrite(CURSOR,cursor.get());
-    waitKey(0);
+//    Cursor cursor;
+//    cursor.find_cursor(cap,5,1000);
+//    //cursor.find_cursor(cap,5,30);
+//    imshow("cursor",cursor.get());
+//    //imwrite(CURSOR,cursor.get());
+//    waitKey(0);
 
     //cap.set(CAP_PROP_POS_FRAMES,178000);
 
-//    Mat cursor = imread(CURSOR);
-//    Presentation presentation(cursor,Rect(460,230,810,600));
-//    presentation.generate(cap,2000);
-//    presentation.write_slides(SLIDE_PATH);
-//    Diff_dict diff;
-//    shift_video_get_difference(cap,100,diff);
-//    show_rects(diff.first,{Rect(460,230,810,600)},"img");
-//    waitKey();
+    Mat cursor = imread(CURSOR);
+    Presentation presentation(cursor,Rect(460,230,810,600));
+    presentation.generate(cap,2000);
+    //presentation.write_slides(SLIDE_PATH);
+    Diff_dict diff;
+    shift_video_get_difference(cap,100,diff);
+    show_rects(diff.first,{Rect(460,230,810,600)},"img");
+    waitKey();
     /*
 
     size_t time = 300000;
@@ -253,7 +247,7 @@ void Presentation::generate(VideoCapture cap,int shift){
 #endif
 
 
-            // Compute fill_mask = mask 'minus' ( mask 'union' local_mask)
+            // Compute fill_mask = mask 'minus' ( mask 'intersect' local_mask)
             Mat alpha;
             Mat not_lm;
             bitwise_not(local_mask,not_lm);

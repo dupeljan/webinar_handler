@@ -41,8 +41,10 @@ void find_bound_rects_rgb(Mat src,vector<Rect> &b_rect); // find bound rect for 
 void to_Piece(vector<Mat> pic, vector<Rect> rect, vector<Piece> &dst);
 void blend_with_mask(Mat &base, Mat &src, Mat &mask, Mat &out);
 void matchTemplateCoords(Mat img, Mat templ,Mat mask,Point& matchLoc);
+void matchTemplateCoords(Mat img, Mat templ,Point& matchLoc);
 
 void add_white_border(Mat src, Mat &dst, int border_size = 1);
+void fill_block_white(Mat src, Mat &dst, Rect block);
 //void insert(Mat src, Mat inset, Point coord);
 void vec_imshow(string name, vector<Mat> src);
 void vec_imshow(string name, vector<Piece> src);
@@ -58,6 +60,7 @@ template<typename T>
 int median(vector<T> row);
 int countNonZero_rgb(Mat src);
 double cmp(Mat x, Mat y); // 1 - equal, 0 - different
+double cmp_templ(Mat x, Mat y);
 cmp_enum cmp_shape(Mat x, Mat y);
 
 

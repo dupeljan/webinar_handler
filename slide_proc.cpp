@@ -10,7 +10,6 @@ void Slide_proc::proccess(Mat image){
 
 #if SLIDE_PROC_DEBUG == 1
     imshow("got img",image);
-    imwrite("/home/dupeljan/Documents/courcework_2019/Latex/pictures/solution/got_img.png",image);
     waitKey();
 #endif
 
@@ -38,7 +37,6 @@ void Slide_proc::proccess(Mat image){
 
 #if SLIDE_PROC_DEBUG == 1
     imshow("after filter",left_border);
-    imwrite("/home/dupeljan/Documents/courcework_2019/Latex/pictures/solution/left_border.png",left_border);
     waitKey();
 #endif
 
@@ -54,7 +52,6 @@ void Slide_proc::proccess(Mat image){
 
 #if SLIDE_PROC_DEBUG == 1
     imshow("intermediate result",result);
-    imwrite("/home/dupeljan/Documents/courcework_2019/Latex/pictures/solution/intermediate_result.png",result);
 #endif
 
     morphologyEx(result,result,MORPH_OPEN,getStructuringElement(MORPH_RECT,Size(UPPER_SICK_LENGTH * 25/20,2)),Point(-1,-1),3);//добавим
@@ -62,7 +59,6 @@ void Slide_proc::proccess(Mat image){
 
 #if SLIDE_PROC_DEBUG == 1
     imshow("after morphology",result);
-    imwrite("/home/dupeljan/Documents/courcework_2019/Latex/pictures/solution/after_morphology.png",result);
     waitKey();
 #endif
 
@@ -86,7 +82,6 @@ void Slide_proc::proccess(Mat image){
 
 #if SLIDE_PROC_DEBUG == 1
     imshow("founded contours",countoured_image);
-    imwrite("/home/dupeljan/Documents/courcework_2019/Latex/pictures/solution/founded_contours.png",countoured_image);
     waitKey();
 #endif
 
@@ -102,14 +97,6 @@ void Slide_proc::proccess(Mat image){
         _.push_back(x.coord);
     show_rects(image,_,"filtered contours");
     waitKey();
-    RNG rng(12345);
-    Mat tmp = image.clone();
-    for( auto &x : _){
-        Scalar color = Scalar( rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
-        //drawContours( image, contours, (int)i, color);
-        rectangle(tmp,x,color);
-    }
-    imwrite("/home/dupeljan/Documents/courcework_2019/Latex/pictures/solution/filtered_contours.png",tmp);
     }
 #endif
 
@@ -135,17 +122,39 @@ void Slide_proc::proccess(Mat image){
     // Set Page segmentation mode to PSM_AUTO (3)
     ocr->SetPageSegMode(tesseract::PSM_AUTO);
 
+    Mat image_minus_text = image.clone();
+    // recognize the text blocks
     for( auto &piece : filtered_pieces ){
         ocr->SetImage(piece.pic.data,piece.pic.cols,piece.pic.rows,3,piece.pic.step);
-        text_blocks.push_back({piece.coord,string(ocr->GetUTF8Text())});
+        auto text = string(ocr->GetUTF8Text());
+        if ( ! text.empty() ){
+            text_blocks.push_back({piece.coord,string(ocr->GetUTF8Text())});
 #if SLIDE_PROC_DEBUG == 1
-        imshow(text_blocks.back().text,piece.pic);
-        cout <<endl<< text_blocks.back().text << endl;
+            imshow(text_blocks.back().text,piece.pic);
+            cout <<endl<< text_blocks.back().text << endl;
+#endif
+            fill_block_white(image_minus_text,image_minus_text,piece.coord);
+      }
+
+#if SLIDE_PROC_DEBUG == 1
+      imshow("minus_text",image_minus_text);
+      waitKey();
 #endif
     }
 
+    // threshold image without text
+    cvtColor(image_minus_text,image_minus_text,COLOR_BGR2GRAY);
+    threshold(image_minus_text,image_minus_text,150,255,THRESH_BINARY);
+
+    // img area
+    area.slide = image.cols * image.rows;
+    area.pics = area.slide - countNonZero(image_minus_text);
+    for( auto &block : text_blocks )
+        area.text += block.coord.area();
 
 #if SLIDE_PROC_DEBUG == 1
+
+    imshow("pic area" + to_string(area.pics),image_minus_text);
     waitKey();
 #endif
 

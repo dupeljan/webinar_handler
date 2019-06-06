@@ -403,6 +403,14 @@ void add_white_border(Mat src,Mat& dst,int border_size /*= 1*/){
     src.copyTo(insetImage);
 }
 
+void fill_block_white(Mat src,Mat& dst,Rect block){
+    dst = src.clone();
+    // get block from dst
+    auto white_block = dst(block);
+    // fill it
+    white_block = Scalar(255,255,255);
+}
+
 void vec_imshow(string name, vector<Mat> src){
     for(int i = 0; i < src.size();i++)
         imshow(name + ' ' + to_string(i),src[i]);
@@ -511,6 +519,11 @@ double cmp(Mat x, Mat y){
     if ( max(cz_x,cz_y) / min(cz_x,cz_y) > color_diff_lim )
         return 0;
 
+    return cmp_templ(x,y);
+
+}
+double cmp_templ(Mat x, Mat y){
+
     // make x in y shape
     auto shape = cmp_shape(x,y);
     if ( shape != cmp_enum::equal){
@@ -595,6 +608,13 @@ void matchTemplateCoords(Mat img, Mat templ,Mat mask,Point& matchLoc){
         { matchLoc = minLoc; }
     else
         { matchLoc = maxLoc; }
+}
+
+void matchTemplateCoords(Mat img, Mat templ,Point& matchLoc){
+    Mat mask;
+    thresh_otsu(templ,mask);
+    cvtColor(mask,mask,COLOR_GRAY2BGR);
+    matchTemplateCoords(img,templ,mask,matchLoc);
 }
 
 cmp_enum cmp_shape(Mat x, Mat y){

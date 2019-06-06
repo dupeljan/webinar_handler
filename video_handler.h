@@ -12,7 +12,7 @@
 #define CURSOR "/home/dupeljan/Projects/webinar_analisator/web_analis_opencv/cursor1.png"
 #define SLIDE_PATH "/home/dupeljan/Projects/webinar_analisator/web_analis_opencv/gen_slides_shorter/"
 #define FRAME_EACH_MSECOND 50 * 10e3
-#define DEBUG_VIDEO 0
+#define DEBUG_VIDEO 2
 
 using namespace cv;
 using namespace std;
@@ -34,14 +34,19 @@ class Cursor {
     Mat img;
     Diff_dict diff;
     vector<Rect>  b_rects;
+    VideoCapture cap;
+   float accuracy = 0.95;
 
     void filter_rects();
     void threshold_diff();
     void find_bound_rects_diff();
 public:
-    Cursor(){};
-    void find_cursor(VideoCapture cap, int hit_lim, int shift);
+    Cursor(VideoCapture cap){this->cap = cap;};
+    void find_cursor(int hit_lim, int shift);
+    size_t patch_length(size_t begin_shift, size_t shift);
     Mat get(){ return img;}
+
+    void set(Mat img){ this->img = img; }
 
 };
 
@@ -70,6 +75,7 @@ VideoWriter get_VideoWriter(VideoCapture cap);
 // Return abs_diff form current time + shift img and current time img
 // Change VideoCapture posintion
 void shift_video_get_difference(VideoCapture src, int shift, Diff_dict &dst);
+
 
 
 

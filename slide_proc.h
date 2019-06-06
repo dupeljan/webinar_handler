@@ -18,19 +18,24 @@ struct Text_block{
     string text;
 };
 
-struct area{
+struct Area{
     size_t slide;
     size_t text;
     size_t pics;
+    Area(){
+        slide = text = pics = 0;
+    }
 };
 
 class Slide_proc
 {
     vector<Text_block> text_blocks;
+    Area area;
 public:
     Slide_proc();
     void proccess(Mat image);
     vector<Text_block> get(){return text_blocks;}
+    Area get_area(){ return area; }
 };
 
 #endif // SLIDE_PROC_H

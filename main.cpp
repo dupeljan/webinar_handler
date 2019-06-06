@@ -5,10 +5,10 @@
 #include "video_handler.h"
 #include "img_handler.h"
 
-#define PIC "/home/dupeljan/Projects/webinar_analisator/web_analis_opencv/gen_slides/slide_15.png"
+#define PIC "/home/dupeljan/Projects/webinar_analisator/web_analis_opencv/gen_slides/slide_8.png"
 
-#define SLIDE_DEBUG 1
-#define VIDEO_DEBUG 0
+#define SLIDE_DEBUG 0
+#define VIDEO_DEBUG 1
 #define FREE_TEST 0
 
 

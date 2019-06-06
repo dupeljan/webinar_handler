@@ -15,23 +15,26 @@ int video_main(){
     if(!cap.isOpened())  // check if we succeeded
         return -1;
 
-//    Cursor cursor;
-//    cursor.find_cursor(cap,5,1000);
-//    //cursor.find_cursor(cap,5,30);
-//    imshow("cursor",cursor.get());
-//    //imwrite(CURSOR,cursor.get());
-//    waitKey(0);
+    Cursor cursor(cap);
+    //cursor.find_cursor(5,1000);
+    //cursor.find_cursor(5,30);
+    auto img = imread(CURSOR);
+    cursor.set(img);
+    //imshow("cursor",cursor.get());
+    //imwrite(CURSOR,cursor.get());
+    waitKey();
+    cout << endl << cursor.patch_length(1000,500) << endl;
 
     //cap.set(CAP_PROP_POS_FRAMES,178000);
 
-    Mat cursor = imread(CURSOR);
-    Presentation presentation(cursor,Rect(460,230,810,600));
-    presentation.generate(cap,2000);
-    //presentation.write_slides(SLIDE_PATH);
-    Diff_dict diff;
-    shift_video_get_difference(cap,100,diff);
-    show_rects(diff.first,{Rect(460,230,810,600)},"img");
-    waitKey();
+//    Mat cursor = imread(CURSOR);
+//    Presentation presentation(cursor,Rect(460,230,810,600));
+//    presentation.generate(cap,2000);
+//    //presentation.write_slides(SLIDE_PATH);
+//    Diff_dict diff;
+//    shift_video_get_difference(cap,100,diff);
+//    show_rects(diff.first,{Rect(460,230,810,600)},"img");
+//    waitKey();
     /*
 
     size_t time = 300000;
@@ -95,9 +98,9 @@ void Cursor::filter_rects(){
     b_rects.erase(it, b_rects.end());
 }
 
-void Cursor::find_cursor(VideoCapture cap, int hit_lim, int shift){
+void Cursor::find_cursor(int hit_lim, int shift){
     //size_t frame_count = cap.get(CAP_PROP_FRAME_CURSOR_AREA _COUNT);
-    const float accuracy = 0.95;
+    cap.set(CAP_PROP_POS_FRAMES,0);
     function<bool(pair<int,Mat>,pair<int,Mat>)> cmp_first =
     [](pair<int,Mat> x,pair<int,Mat> y){
         return x.first < y.first;
@@ -129,7 +132,7 @@ void Cursor::find_cursor(VideoCapture cap, int hit_lim, int shift){
             //show_rects(diff.diff,b_rects,"diff");
             //waitKey(0);
 
-            set<int> visited;
+            std::set<int> visited;
             vector<pair<int,Mat>> append;
             for(auto &rect : b_rects){
                 bool find = false;
@@ -160,6 +163,53 @@ void Cursor::find_cursor(VideoCapture cap, int hit_lim, int shift){
             imshow(to_string(chains[i].first) + "_pic_" + to_string(i),chains[i].second);
 #endif
     }
+}
+
+size_t Cursor::patch_length(size_t begin_shift, size_t shift){
+
+    auto norm = [](Point a, Point b)-> size_t{
+        return sqrt(pow(a.x-b.x,2) + pow(a.y-b.y,2));
+    };
+    if (img.empty())
+        return 0;
+    // start from beginig
+    size_t t = 0;
+    cap.set(CAP_PROP_POS_FRAMES,t);
+    Mat tmp;
+    do{
+        cap >> tmp;
+        t+=begin_shift;
+        cap.set(CAP_PROP_POS_FRAMES,t);
+    }while( ! tmp.empty() && cmp_templ(tmp,img) < accuracy );
+
+    if (tmp.empty())
+        return 0;
+#if DEBUG_VIDEO == 2
+    imshow("first cursor appearing",tmp);
+#endif
+    Point pos;
+    size_t result = 0;
+    matchTemplateCoords(tmp,img,pos);
+    while (true){
+        cap >> tmp;
+        if (tmp.empty())
+            break;
+
+#if DEBUG_VIDEO == 2
+        imshow("video",tmp);
+        waitKey();
+#endif
+        t+= shift;
+        cap.set(CAP_PROP_POS_FRAMES,t);
+        if (cmp_templ(tmp,img) > accuracy){
+            Point local_pos;
+            matchTemplateCoords(tmp,img,local_pos);
+            result += norm(pos,local_pos);
+            pos = local_pos;
+        }
+    }
+
+    return result;
 }
 
 // end Cursor
